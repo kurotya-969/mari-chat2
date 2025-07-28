@@ -7,6 +7,7 @@
 
 /* === メインアプリケーション === */
 .stApp {
+    background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
     background-size: cover;
     background-position: center;
     background-attachment: fixed;
@@ -16,7 +17,7 @@
 
 /* メインコンテナのオーバーレイ */
 .stApp > div:first-child {
-    background: rgba(0, 0, 0, 0.7);
+    background: rgba(255, 255, 255, 0.9);
     backdrop-filter: blur(5px);
     min-height: 100vh;
     transition: background 1.5s ease-in-out, backdrop-filter 1.5s ease-in-out;
@@ -24,68 +25,118 @@
 
 /* === チャットメッセージ === */
 .stChatMessage {
-    background: rgba(255, 255, 255, 0.1) !important;
+    background: rgba(255, 255, 255, 0.95) !important;
     backdrop-filter: blur(10px);
     border-radius: 12px !important;
-    border: 1px solid rgba(255, 255, 255, 0.2) !important;
+    border: 1px solid rgba(0, 0, 0, 0.1) !important;
     margin: 8px 0 !important;
-    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1) !important;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1) !important;
     transition: all 0.3s ease;
+    color: #333 !important;
 }
 
 .stChatMessage:hover {
-    background: rgba(255, 255, 255, 0.15) !important;
-    border: 1px solid rgba(255, 255, 255, 0.3) !important;
+    background: rgba(255, 255, 255, 1) !important;
+    border: 1px solid rgba(0, 0, 0, 0.2) !important;
     transform: translateY(-2px);
-    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.15) !important;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.15) !important;
 }
 
 /* ユーザーメッセージ */
 .stChatMessage[data-testid="user-message"] {
-    background: rgba(100, 149, 237, 0.2) !important;
-    border: 1px solid rgba(100, 149, 237, 0.4) !important;
+    background: rgba(100, 149, 237, 0.1) !important;
+    border: 1px solid rgba(100, 149, 237, 0.3) !important;
+}
+
+/* アシスタントメッセージ */
+.stChatMessage[data-testid="assistant-message"] {
+    background: rgba(255, 255, 255, 0.95) !important;
+    border: 1px solid rgba(0, 0, 0, 0.1) !important;
+}
+
+/* 麻理の初期メッセージアニメーション */
+.mari-initial-message {
+    animation: popIn 0.8s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+}
+
+@keyframes popIn {
+    0% {
+        opacity: 0;
+        transform: scale(0.3) translateY(20px);
+    }
+    50% {
+        opacity: 0.8;
+        transform: scale(1.05) translateY(-5px);
+    }
+    100% {
+        opacity: 1;
+        transform: scale(1) translateY(0);
+    }
+}
+
+/* 自動スクロール用のスムーズスクロール */
+.chat-container {
+    scroll-behavior: smooth;
 }
 
 /* === サイドバー === */
 [data-testid="stSidebar"] {
-    background: rgba(0, 0, 0, 0.8) !important;
+    background: rgba(255, 255, 255, 0.95) !important;
     backdrop-filter: blur(15px) !important;
-    border-right: 1px solid rgba(255, 255, 255, 0.1) !important;
+    border-right: 1px solid rgba(0, 0, 0, 0.1) !important;
 }
 
 /* サイドバー内のテキスト */
 [data-testid="stSidebar"] .stMarkdown,
 [data-testid="stSidebar"] .stMetric,
 [data-testid="stSidebar"] label {
-    color: white !important;
-    text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.7);
+    color: #333 !important;
+    text-shadow: none;
 }
 
 /* === 入力フィールド === */
 .stTextInput > div > div > input {
-    background: rgba(255, 255, 255, 0.1) !important;
-    color: white !important;
-    border: 1px solid rgba(255, 255, 255, 0.3) !important;
+    background: rgba(255, 255, 255, 0.95) !important;
+    color: #333 !important;
+    border: 1px solid rgba(0, 0, 0, 0.2) !important;
     border-radius: 8px !important;
     backdrop-filter: blur(5px);
     transition: all 0.3s ease;
 }
 
 .stTextInput > div > div > input:focus {
-    background: rgba(255, 255, 255, 0.15) !important;
-    border: 1px solid rgba(255, 255, 255, 0.5) !important;
-    box-shadow: 0 0 10px rgba(255, 255, 255, 0.2) !important;
+    background: rgba(255, 255, 255, 1) !important;
+    border: 1px solid rgba(100, 149, 237, 0.5) !important;
+    box-shadow: 0 0 10px rgba(100, 149, 237, 0.2) !important;
 }
 
 .stTextInput > div > div > input::placeholder {
-    color: rgba(255, 255, 255, 0.6) !important;
+    color: rgba(0, 0, 0, 0.5) !important;
+}
+
+/* チャット入力フィールドのスタイル */
+.stChatInput > div > div > input {
+    background: rgba(255, 255, 255, 0.95) !important;
+    color: #333 !important;
+    border: 1px solid rgba(0, 0, 0, 0.2) !important;
+    border-radius: 8px !important;
+}
+
+.stChatInput > div > div > input:focus {
+    background: rgba(255, 255, 255, 1) !important;
+    border: 1px solid rgba(100, 149, 237, 0.5) !important;
+    box-shadow: 0 0 10px rgba(100, 149, 237, 0.2) !important;
+}
+
+.stChatInput > div > div > input::placeholder {
+    color: rgba(0, 0, 0, 0.5) !important;
 }
 
 /* === ボタン === */
 .stButton > button {
-    background: rgba(255, 255, 255, 0.1) !important;
-    color: white !important;
-    border: 1px solid rgba(255, 255, 255, 0.3) !important;
+    background: rgba(255, 255, 255, 0.95) !important;
+    color: #333 !important;
+    border: 1px solid rgba(0, 0, 0, 0.2) !important;
     border-radius: 8px !important;
     backdrop-filter: blur(5px);
     transition: all 0.3s ease;
@@ -93,10 +144,32 @@
 }
 
 .stButton > button:hover {
-    background: rgba(255, 255, 255, 0.2) !important;
-    border: 1px solid rgba(255, 255, 255, 0.5) !important;
+    background: rgba(255, 255, 255, 1) !important;
+    border: 1px solid rgba(0, 0, 0, 0.3) !important;
     transform: translateY(-2px);
-    box-shadow: 0 4px 15px rgba(255, 255, 255, 0.1) !important;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1) !important;
+}
+
+.stButton > button:active {
+    transform: translateY(0);
+}
+
+/* プライマリボタン */
+.stButton > button[kind="primary"] {
+    background: linear-gradient(45deg, #667eea, #764ba2) !important;
+    border: 1px solid rgba(255, 255, 255, 0.4) !important;
+    color: white !important;
+}
+
+.stButton > button[kind="primary"]:hover {
+    background: linear-gradient(45deg, #5a6fd8, #6a4190) !important;
+}
+
+/* セカンダリボタン */
+.stButton > button[kind="secondary"] {
+    background: rgba(255, 255, 255, 0.8) !important;
+    border: 1px solid rgba(0, 0, 0, 0.2) !important;
+    color: #333 !important;
 }
 
 /* === プログレスバー（好感度ゲージ用） === */
@@ -112,26 +185,33 @@
 
 /* === Expander（折りたたみ要素）のスタイル === */
 [data-testid="stExpander"] {
-    background: rgba(255, 255, 255, 0.05) !important;
-    border: 1px solid rgba(255, 255, 255, 0.2) !important;
+    background: rgba(255, 255, 255, 0.9) !important;
+    border: 1px solid rgba(0, 0, 0, 0.1) !important;
     border-radius: 12px !important;
     backdrop-filter: blur(5px);
 }
 [data-testid="stExpander"] summary { /* Expanderのヘッダー部分 */
     font-size: 1.1em;
     font-weight: 500;
-    color: white;
+    color: #333 !important;
 }
 
 /* === スクロールバー === */
 ::-webkit-scrollbar { width: 8px; height: 8px; }
-::-webkit-scrollbar-track { background: rgba(255, 255, 255, 0.1); border-radius: 4px; }
-::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.3); border-radius: 4px; }
-::-webkit-scrollbar-thumb:hover { background: rgba(255, 255, 255, 0.5); }
+::-webkit-scrollbar-track { background: rgba(0, 0, 0, 0.1); border-radius: 4px; }
+::-webkit-scrollbar-thumb { background: rgba(0, 0, 0, 0.3); border-radius: 4px; transition: background 0.3s ease; }
+::-webkit-scrollbar-thumb:hover { background: rgba(0, 0, 0, 0.5); }
+::-webkit-scrollbar-corner { background: transparent; }
 
 /* === テキストの可読性向上 === */
-.stMarkdown, .stText { text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.7); }
-.stMarkdown h1, .stMarkdown h2, .stMarkdown h3 { color: white !important; text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.8); }
+.stMarkdown, .stText { 
+    color: #333 !important;
+    text-shadow: none; 
+}
+.stMarkdown h1, .stMarkdown h2, .stMarkdown h3 { 
+    color: #333 !important; 
+    text-shadow: none; 
+}
 
 /* === アニメーション === */
 @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
