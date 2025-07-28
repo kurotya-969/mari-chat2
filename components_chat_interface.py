@@ -37,7 +37,7 @@ class ChatInterface:
             # 初回メッセージ
             if not messages:
                 with st.chat_message("assistant"):
-                    st.markdown("……チャット？ ああ、音声イカれてるんだっけ。で、何の用？")
+                    st.markdown("何の用？遊びに来たの？")
                 return
             
             # 既存のメッセージを表示

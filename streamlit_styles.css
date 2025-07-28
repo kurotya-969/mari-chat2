@@ -1,4 +1,4 @@
-/* Streamlit用カスタムCSS */
+/* Streamlit用カスタムCSS - UIクリーンアップ版 */
 
 /* === グローバルスタイル === */
 * {
@@ -46,30 +46,19 @@
     border: 1px solid rgba(100, 149, 237, 0.4) !important;
 }
 
-/* アシスタントメッセージ */
-.stChatMessage[data-testid="assistant-message"] {
-    background: rgba(255, 255, 255, 0.1) !important;
-    border: 1px solid rgba(255, 255, 255, 0.2) !important;
-}
-
 /* === サイドバー === */
-.css-1d391kg, .css-1cypcdb {
+[data-testid="stSidebar"] {
     background: rgba(0, 0, 0, 0.8) !important;
     backdrop-filter: blur(15px) !important;
     border-right: 1px solid rgba(255, 255, 255, 0.1) !important;
 }
 
-/* サイドバーのテキスト */
-.css-1d391kg .stMarkdown, .css-1cypcdb .stMarkdown {
+/* サイドバー内のテキスト */
+[data-testid="stSidebar"] .stMarkdown,
+[data-testid="stSidebar"] .stMetric,
+[data-testid="stSidebar"] label {
     color: white !important;
     text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.7);
-}
-
-/* サイドバーのヘッダー */
-.css-1d391kg h1, .css-1d391kg h2, .css-1d391kg h3,
-.css-1cypcdb h1, .css-1cypcdb h2, .css-1cypcdb h3 {
-    color: white !important;
-    text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.8);
 }
 
 /* === 入力フィールド === */
@@ -110,318 +99,69 @@
     box-shadow: 0 4px 15px rgba(255, 255, 255, 0.1) !important;
 }
 
-.stButton > button:active {
-    transform: translateY(0);
-}
-
-/* プライマリボタン */
-.stButton > button[kind="primary"] {
-    background: linear-gradient(45deg, #667eea, #764ba2) !important;
-    border: 1px solid rgba(255, 255, 255, 0.4) !important;
-}
-
-.stButton > button[kind="primary"]:hover {
-    background: linear-gradient(45deg, #5a6fd8, #6a4190) !important;
-}
-
-/* セカンダリボタン */
-.stButton > button[kind="secondary"] {
-    background: rgba(255, 255, 255, 0.05) !important;
-    border: 1px solid rgba(255, 255, 255, 0.2) !important;
-}
-
-/* === セレクトボックス === */
-.stSelectbox > div > div {
-    background: rgba(255, 255, 255, 0.1) !important;
-    border: 1px solid rgba(255, 255, 255, 0.3) !important;
-    border-radius: 8px !important;
-    backdrop-filter: blur(5px);
-}
-
-.stSelectbox > div > div > div {
-    color: white !important;
-}
-
-/* === チェックボックス === */
-.stCheckbox > label {
-    color: white !important;
-    text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.7);
-}
-
-.stCheckbox > label > div {
-    background: rgba(255, 255, 255, 0.1) !important;
-    border: 1px solid rgba(255, 255, 255, 0.3) !important;
-    border-radius: 4px !important;
-}
-
 /* === プログレスバー（好感度ゲージ用） === */
 .stProgress > div > div > div {
     background: linear-gradient(90deg, #ff6b6b, #feca57, #48dbfb, #ff9ff3, #54a0ff) !important;
-    border-radius: 10px !important;
+}
+.stProgress {
+    border-radius: 10px;
     height: 20px !important;
-}
-
-/* === メトリクス === */
-.metric-container {
-    background: rgba(255, 255, 255, 0.1) !important;
-    padding: 15px !important;
-    border-radius: 12px !important;
-    backdrop-filter: blur(10px);
     border: 1px solid rgba(255, 255, 255, 0.2);
-    margin: 10px 0;
-    transition: all 0.3s ease;
+    background: rgba(0, 0, 0, 0.3);
 }
 
-.metric-container:hover {
-    background: rgba(255, 255, 255, 0.15) !important;
-    transform: translateY(-2px);
-    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.15);
-}
-
-/* === アラート === */
-.stAlert {
-    background: rgba(255, 255, 255, 0.1) !important;
-    backdrop-filter: blur(10px) !important;
-    border-radius: 8px !important;
+/* === Expander（折りたたみ要素）のスタイル === */
+[data-testid="stExpander"] {
+    background: rgba(255, 255, 255, 0.05) !important;
     border: 1px solid rgba(255, 255, 255, 0.2) !important;
-    color: white !important;
-}
-
-.stAlert[data-baseweb="notification"] {
-    animation: slideInFromTop 0.5s ease-out;
-}
-
-/* 成功メッセージ */
-.stSuccess {
-    background: rgba(38, 222, 129, 0.2) !important;
-    border: 1px solid rgba(38, 222, 129, 0.4) !important;
-}
-
-/* エラーメッセージ */
-.stError {
-    background: rgba(255, 107, 107, 0.2) !important;
-    border: 1px solid rgba(255, 107, 107, 0.4) !important;
-}
-
-/* 警告メッセージ */
-.stWarning {
-    background: rgba(254, 202, 87, 0.2) !important;
-    border: 1px solid rgba(254, 202, 87, 0.4) !important;
-}
-
-/* 情報メッセージ */
-.stInfo {
-    background: rgba(84, 160, 255, 0.2) !important;
-    border: 1px solid rgba(84, 160, 255, 0.4) !important;
-}
-
-/* === JSON表示 === */
-.stJson {
-    background: rgba(0, 0, 0, 0.3) !important;
-    border: 1px solid rgba(255, 255, 255, 0.2) !important;
-    border-radius: 8px !important;
+    border-radius: 12px !important;
     backdrop-filter: blur(5px);
+}
+[data-testid="stExpander"] summary { /* Expanderのヘッダー部分 */
+    font-size: 1.1em;
+    font-weight: 500;
+    color: white;
 }
 
 /* === スクロールバー === */
-::-webkit-scrollbar {
-    width: 8px;
-    height: 8px;
-}
-
-::-webkit-scrollbar-track {
-    background: rgba(255, 255, 255, 0.1);
-    border-radius: 4px;
-}
-
-::-webkit-scrollbar-thumb {
-    background: rgba(255, 255, 255, 0.3);
-    border-radius: 4px;
-    transition: background 0.3s ease;
-}
-
-::-webkit-scrollbar-thumb:hover {
-    background: rgba(255, 255, 255, 0.5);
-}
-
-::-webkit-scrollbar-corner {
-    background: transparent;
-}
+::-webkit-scrollbar { width: 8px; height: 8px; }
+::-webkit-scrollbar-track { background: rgba(255, 255, 255, 0.1); border-radius: 4px; }
+::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.3); border-radius: 4px; }
+::-webkit-scrollbar-thumb:hover { background: rgba(255, 255, 255, 0.5); }
 
 /* === テキストの可読性向上 === */
-.stMarkdown, .stText {
-    text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.7);
-}
-
-.stMarkdown h1, .stMarkdown h2, .stMarkdown h3 {
-    color: white !important;
-    text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.8);
-}
+.stMarkdown, .stText { text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.7); }
+.stMarkdown h1, .stMarkdown h2, .stMarkdown h3 { color: white !important; text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.8); }
 
 /* === アニメーション === */
-@keyframes slideInFromTop {
-    from {
-        opacity: 0;
-        transform: translateY(-20px);
-    }
-    to {
-        opacity: 1;
-        transform: translateY(0);
-    }
-}
-
-@keyframes fadeIn {
-    from { opacity: 0; }
-    to { opacity: 1; }
-}
-
-@keyframes pulse {
-    0% { opacity: 1; }
-    50% { opacity: 0.7; }
-    100% { opacity: 1; }
-}
-
-/* シーン変更時のトランジション */
-.scene-transition {
-    animation: fadeIn 2s ease-in-out;
-}
-
-/* タイピングインジケーター */
-.typing-indicator {
-    animation: pulse 1.5s ease-in-out infinite;
-}
+@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+.scene-transition { animation: fadeIn 2s ease-in-out; }
 
 /* === レスポンシブ対応 === */
 @media (max-width: 768px) {
-    .stApp {
-        background-attachment: scroll;
-    }
-    
-    .stChatMessage {
-        margin: 4px 0 !important;
-        border-radius: 8px !important;
-    }
-    
-    .metric-container {
-        padding: 10px !important;
-        margin: 5px 0;
-    }
-    
-    .stButton > button {
-        padding: 8px 16px !important;
-        font-size: 14px !important;
-    }
+    .stApp { background-attachment: scroll; }
+    .stChatMessage { margin: 4px 0 !important; border-radius: 8px !important; }
 }
 
-@media (max-width: 480px) {
-    .stApp > div:first-child {
-        backdrop-filter: blur(3px);
-    }
-    
-    .stChatMessage {
-        backdrop-filter: blur(5px);
-    }
-    
-    .css-1d391kg, .css-1cypcdb {
-        backdrop-filter: blur(10px) !important;
-    }
+
+/* --- ▼▼▼ 【UIクリーンアップのための追加ルール】 ▼▼▼ --- */
+
+/* 1. Python側で生成される不要な要素を非表示 */
+/* 謎のタブ、2本目のゲージ、カスタムステータス表示などをまとめて非表示 */
+.status-display,
+.metric-container,
+.affection-gauge,
+[data-testid="stSidebar"] [data-testid="stHeading"] {
+    display: none !important;
 }
 
-/* === カスタムクラス === */
-.affection-gauge {
-    background: linear-gradient(90deg, #ff6b6b, #feca57, #48dbfb, #ff9ff3, #54a0ff);
-    height: 20px;
-    border-radius: 10px;
-    margin: 10px 0;
-    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
-    transition: all 0.3s ease;
+/* 2. サイドバー内の st.metric のデフォルトラベルを非表示（Python側でlabel="好感度"と設定済みのため） */
+[data-testid="stMetric"] label {
+    display: none !important;
 }
 
-.affection-gauge:hover {
-    transform: scaleY(1.1);
-    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
-}
-
-.status-display {
-    background: rgba(255, 255, 255, 0.1);
-    padding: 15px;
-    border-radius: 12px;
-    margin: 10px 0;
-    backdrop-filter: blur(10px);
-    border: 1px solid rgba(255, 255, 255, 0.2);
-    transition: all 0.3s ease;
-}
-
-.status-display:hover {
-    background: rgba(255, 255, 255, 0.15);
-    transform: translateY(-2px);
-}
-
-.chat-message {
-    padding: 12px;
-    margin: 8px 0;
-    border-radius: 12px;
-    transition: all 0.3s ease;
-}
-
-.sidebar-content {
-    padding: 15px;
-}
-
-.main-container {
-    padding: 20px;
-    max-width: 1000px;
-    margin: 0 auto;
-}
-
-/* === ダークモード対応 === */
-@media (prefers-color-scheme: dark) {
-    .stApp > div:first-child {
-        background: rgba(0, 0, 0, 0.8);
-    }
-    
-    .stChatMessage {
-        background: rgba(255, 255, 255, 0.05) !important;
-    }
-    
-    .css-1d391kg, .css-1cypcdb {
-        background: rgba(0, 0, 0, 0.9) !important;
-    }
-}
-
-/* === アクセシビリティ === */
-@media (prefers-reduced-motion: reduce) {
-    * {
-        animation-duration: 0.01ms !important;
-        animation-iteration-count: 1 !important;
-        transition-duration: 0.01ms !important;
-    }
-}
-
-/* フォーカス表示の改善 */
-button:focus, input:focus, select:focus {
-    outline: 2px solid rgba(255, 255, 255, 0.5) !important;
-    outline-offset: 2px !important;
-}
-
-/* === 印刷対応 === */
-@media print {
-    .stApp {
-        background: white !important;
-    }
-    
-    .stApp > div:first-child {
-        background: transparent !important;
-        backdrop-filter: none !important;
-    }
-    
-    .stChatMessage {
-        background: white !important;
-        border: 1px solid #ccc !important;
-        color: black !important;
-    }
-    
-    .css-1d391kg, .css-1cypcdb {
-        display: none !important;
-    }
+/* 3. サイドバーのデバッグ用チェックボックスなどを非表示 */
+[data-testid="stSidebar"] .stCheckbox,
+[data-testid="stSidebar"] .stSelectbox {
+    display: none !important;
 }

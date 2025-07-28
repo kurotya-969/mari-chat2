@@ -186,10 +186,10 @@ class SentimentAnalyzer:
         if affection < 20:
             return "ステージ1：敵対"
         elif affection < 40:
-            return "ステージ2：警戒"
+            return "ステージ2：中立"
         elif affection < 60:
-            return "ステージ3：中立"
+            return "ステージ3：好意"
         elif affection < 80:
-            return "ステージ4：好意"
+            return "ステージ4：親密"
         else:
-            return "ステージ5：親密"
+            return "ステージ5：最接近"
