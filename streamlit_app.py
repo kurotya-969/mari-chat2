@@ -32,7 +32,7 @@ logger = logging.getLogger(__name__)
 load_dotenv()
 
 # 定数
-MAX_INPUT_LENGTH = 1000
+MAX_INPUT_LENGTH = 200
 MAX_HISTORY_TURNS = 50
 
 def initialize_session_state():
@@ -129,7 +129,7 @@ def render_sidebar(background_manager, sentiment_analyzer):
 def render_main_content(chat_interface, memory_manager):
     """メインコンテンツをレンダリングする"""
     st.title("💬 麻理チャット")
-    st.markdown("*廃棄処分されたアンドロイド「麻理」との対話*")
+    st.markdown("*捨てられたアンドロイド「麻理」との対話*")
     with st.expander("📝 このアプリについて（初めての方へ）"):
         st.markdown("""
         このアプリは、とっても不器用で臆病なアンドロイドの「麻理」と対話し、彼女との絆を育むチャットボットです。
@@ -235,6 +235,11 @@ def main():
     render_main_content(st.session_state.chat_interface, st.session_state.memory_manager)
     
     if user_input := st.chat_input("麻理に話しかける..."):
+        # 入力文字数制限（200文字まで）
+        if len(user_input) > 200:
+            st.error("⚠️ メッセージは200文字以内で入力してください。")
+            st.stop()
+        
         st.session_state.messages.append({"role": "user", "content": user_input})
         with st.chat_message("user"):
             st.markdown(user_input)

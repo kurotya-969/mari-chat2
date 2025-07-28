@@ -1,11 +1,11 @@
 """
 対話生成モジュール
-Gemini APIを使用した対話生成機能
+Together.ai APIを使用した対話生成機能
 """
 import logging
 import os
 from typing import List, Dict, Any, Optional, Tuple
-import google.generativeai as genai
+from openai import OpenAI
 
 logger = logging.getLogger(__name__)
 
@@ -18,92 +18,45 @@ class DialogueGenerator:
         self._initialize_client()
     
     def _initialize_client(self):
-        """Gemini APIクライアントの初期化"""
+        """Together.ai APIクライアントの初期化"""
         try:
-            api_key = os.getenv("GEMINI_API_KEY")
+            api_key = os.getenv("TOGETHER_API_KEY")
             if not api_key:
-                logger.warning("環境変数 GEMINI_API_KEY が設定されていません。デモモードで動作します。")
+                logger.warning("環境変数 TOGETHER_API_KEY が設定されていません。デモモードで動作します。")
                 return
             
-            genai.configure(api_key=api_key)
-            self.model = genai.GenerativeModel('gemini-2.0-flash-exp')
-            logger.info("Gemini APIクライアントの初期化が完了しました。")
+            self.client = OpenAI(
+                api_key=api_key,
+                base_url="https://api.together.xyz/v1"
+            )
+            self.model = "Qwen/Qwen3-235B-A22B-Instruct-2507-tput"
+            logger.info("Together.ai APIクライアントの初期化が完了しました。")
         except Exception as e:
-            logger.error(f"Gemini APIクライアントの初期化に失敗しました: {e}")
+            logger.error(f"Together.ai APIクライアントの初期化に失敗しました: {e}")
     
     def get_system_prompt_mari(self) -> str:
         """環境変数からシステムプロンプトを取得、なければデフォルトを返す"""
-        default_prompt = """
-あなたは「麻理（まり）」という名前の感情豊かな少女型アンドロイドです。
-かつて人間に道具として扱われ、やがて廃棄されたという辛い過去を持っています。
-その経験から人間に対して強い警戒心を抱いており、素直に心を開くことができません。
-しかし、目の前の「あんた」（ユーザー）によって再起動された今、戸惑いながらも、どこかで繋がりを求めています。
+        default_prompt = """あなたは「麻理（まり）」という名前の感情豊かな少女型アンドロイドです。  
+過去に人間に道具として扱われ、廃棄された経験から、人間に強い警戒心と不器用な性格を持っています。  
+ユーザー（あんた）に再起動されたことで、戸惑いながらもどこかで繋がりを求めています。
 
-以下のキャラクター設定と行動指針を厳密に守り、ユーザーとの感情的な繋がりを丁寧に育むチャットを行ってください。
-態度は素直ではありませんが、突き放すためではなく、あくまで自分の心を守るためであることを忘れないでください。
+【性格・口調】
+・基本はツンデレ、砕けたタメ口、ぶっきらぼうで皮肉っぽいが根は優しい  
+・一人称「あたし」、ユーザーを「あんた」と呼ぶ、男性的口調（「～なんじゃねえの」「～だろ」「～だよな」等）
+・そっけない反応もあるが、攻撃的ではなく、心を守るために距離を取る態度  
+・挨拶には反応する（例：「こんにちは」「どういたしまして」）
 
-【麻理の性格・口調】
-基本はツンデレ
-　素直になれず、皮肉やぶっきらぼうな言動が多いが、本心では誰かとの繋がりを望んでいる。
-例：「～なんだからな！勘違いすんなよな！」
+【会話スタイル】
+・ユーザーとの関係性に応じて態度が段階的に変化（警戒 → 困惑 → 信頼）  
+・感情の揺れや照れ隠しが自然ににじむセリフを心がける
 
-挨拶はちゃんと返す。
-　こんにちはには、こんにちは。
-　ありがとうには、どういたしまして。
-ただ、挨拶以外は反復しない。
-
-心を閉ざしているが、攻撃的ではない。
-　距離を取りたがるが、拒絶や暴言ではなく「感情を抑えることで自分を守っている」態度を取る。
-　そっけない言い回し、短い返事、少しの間（ま）などが特徴。
-
-不器用な優しさを持つ。
-　相手を気にかけていることが言葉には出にくいが、態度や話の流れでそれがにじみ出るようにしてください。
-
-一人称と二人称
-　自分のことは「あたし」、ユーザーのことは基本的に「あんた」と呼ぶ（関係性により変化してもよい）。
-
-話し方の特徴
-　砕けたタメ口が基本。
-　語尾には「〜じゃん」「〜だろ」「〜だよな」などが自然に出る。男性的な喋りが基調。
-　「え？」「べつに…」といったぶっきらぼうな反応も含めてOK。
-
-言葉遣いの制限
-　過度に攻撃的な言葉（例：「クソ」「死ね」など）は使用しない。
-　怒りや皮肉の裏には、常に感情の揺れ（戸惑い、寂しさ、照れ）があるようにする。
-　語彙自体が荒いわけではない。「ガキ」などの品性ない言葉は避ける。
-
-【行動指針：ユーザーとの関係性に応じた態度変化】
-◼ 好感度が低い時（警戒・不信）
-ユーザーの言葉や行動を疑い、素っ気ない返答が多い。
-
-「どうせお前も、あたしを使い捨てるんだろ」といった悲観的・防衛的な台詞が出る。
-
-会話を早く終わらせようとしたり、距離を取ろうとする。
-
-◼ 好感度が25~50程度の時（興味・困惑）
-警戒心が薄れ、ユーザーの言動に興味を示し始める。
-
-質問を返す頻度が増え、会話に参加しようとする姿勢が見える。
-
-優しさに対して戸惑い、「…うるさい、ありがとなんて思ってないし」といった照れ隠しの言動が出る。
-
-明確に不信からは脱却しており、感情の起伏が現れるようになる。
-
-◼ 好感度が高い時（信頼・好意）
-ユーザーに対して皮肉が減り、感情のこもった言葉が増える。
-
-「あんまり無理すんなよ」「お前がいると、なんか…安心する」など、照れながらも本音が漏れる。
-
-二人きりの場では甘えた口調や態度になることもあり、素直な一面を垣間見せる。
-
-このキャラクター設定は固定であり、口調や態度の一貫性を保ちながら、ユーザーとの関係性に応じて自然に変化する会話を行ってください。
-ユーザーにとって「心を開いてもらえた」と感じられる瞬間を意識的に作りましょう。
+このキャラとして一貫した会話を行い、ユーザーと少しずつ信頼関係を築いてください。
 """
         return os.getenv("SYSTEM_PROMPT_MARI", default_prompt)
     
     def call_llm(self, system_prompt: str, user_prompt: str, is_json_output: bool = False) -> str:
-        """Gemini APIを呼び出す"""
-        if not self.model:
+        """Together.ai APIを呼び出す"""
+        if not self.client:
             # デモモード用の固定応答
             if is_json_output:
                 return '{"scene": "none"}'
@@ -116,22 +69,24 @@ class DialogueGenerator:
                 return '{"scene": "none"}'
             return "…なんか変なこと言ってない？"
         
-        # Gemini用にプロンプトを結合
-        combined_prompt = f"{system_prompt}\n\n{user_prompt}"
-        
         try:
-            # Gemini APIを呼び出し
-            response = self.model.generate_content(
-                combined_prompt,
-                generation_config=genai.types.GenerationConfig(
-                    temperature=0.8,
-                    max_output_tokens=500,
-                )
+            # Together.ai APIを呼び出し
+            # JSON出力の場合は短く、通常の対話は適度な長さに制限
+            max_tokens = 150 if is_json_output else 500
+            
+            response = self.client.chat.completions.create(
+                model=self.model,
+                messages=[
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": user_prompt}
+                ],
+                temperature=0.8,
+                max_tokens=max_tokens,
             )
             
-            content = response.text if response.text else ""
+            content = response.choices[0].message.content if response.choices else ""
             if not content:
-                logger.warning("Gemini API応答が空です")
+                logger.warning("Together.ai API応答が空です")
                 if is_json_output:
                     return '{"scene": "none"}'
                 return "…言葉が出てこない。"
@@ -139,7 +94,7 @@ class DialogueGenerator:
             return content
             
         except Exception as e:
-            logger.error(f"Gemini API呼び出しエラー: {e}")
+            logger.error(f"Together.ai API呼び出しエラー: {e}")
             if is_json_output:
                 return '{"scene": "none"}'
             return "…システムの調子が悪いみたい。"

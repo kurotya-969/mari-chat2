@@ -21,15 +21,15 @@ GradioからStreamlitに移行された麻理との対話型チャットアプ�
    - **SDK**: "Docker"
    - **Hardware**: CPU basic（推奨）
 3. 環境変数を設定（Settings > Variables and secrets）:
-   - `GEMINI_API_KEY`: Google Gemini APIキー（**必須**）
+   - `TOGETHER_API_KEY`: Together.ai APIキー（**必須**）
    - `GROQ_API_KEY`: Groq APIキー（シーン検出用、**必須**）
    - `SYSTEM_PROMPT_MARI`: システムプロンプト（オプション）
 
 **注意**: 
 - Docker SDKを使用するため、自動的にDockerfileからビルドされます
-- `GEMINI_API_KEY`が設定されていない場合、デモモードで動作しますが機能が制限されます
+- `TOGETHER_API_KEY`が設定されていない場合、デモモードで動作しますが機能が制限されます
 - `GROQ_API_KEY`が設定されていない場合、シーン変更機能が無効になります
-- Gemini APIキーは [Google AI Studio](https://aistudio.google.com/app/apikey) で取得
+- Together.ai APIキーは [Together.ai Console](https://api.together.xyz/) で取得
 - Groq APIキーは [Groq Console](https://console.groq.com/keys) で取得
 
 ### ローカルDockerでのデプロイ
