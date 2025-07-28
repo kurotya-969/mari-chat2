@@ -1,40 +1,70 @@
 ---
-title: 麻理チャット - Streamlit版
-emoji: 🤖
-colorFrom: red
-colorTo: pink
-sdk: docker
+title: 非同期手紙生成アプリ（麻理AI）
+emoji: 💌
+colorFrom: pink
+colorTo: purple
+sdk: streamlit
 pinned: false
 license: mit
 ---
 
-# 麻理チャットアプリ - Streamlit版
+# 非同期手紙生成アプリ（麻理AI）
 
-GradioからStreamlitに移行された麻理との対話型チャットアプリケーションです。
+Hugging Face Spaces用の非同期手紙生成アプリケーションです。
 
-## 🚀 デプロイメント方法
+## 🚀 機能
+
+- **非同期手紙生成**: GroqとGemini APIを使用した手紙の自動生成
+- **バッチ処理**: 指定時刻での自動処理
+- **ストレージ管理**: JSONベースのデータ永続化
+- **ログ機能**: 詳細なログ出力
+- **Streamlitインターフェース**: ユーザーフレンドリーなWeb UI
+
+## 📁 ファイル構成
+
+### コア機能
+- `letter_app.py` - メインアプリケーション
+- `letter_config.py` - 設定管理
+- `letter_logger.py` - ログ機能
+- `letter_storage.py` - ストレージ管理
+- `letter_models.py` - データモデル
+- `letter_manager.py` - 手紙管理
+
+### UI
+- `streamlit_app.py` - Streamlitメインアプリ
+- `streamlit_styles.css` - スタイル定義
+
+### 設定
+- `requirements.txt` - 依存関係
+- `.env` - 環境変数（開発用）
+
+## 🔧 環境変数
+
+Hugging Face Spacesの設定画面で以下を設定してください：
+
+| 変数名 | 説明 | 必須 | デフォルト値 |
+|--------|------|------|-------------|
+| `GROQ_API_KEY` | Groq APIキー | ✅ | - |
+| `GEMINI_API_KEY` | Gemini APIキー | ✅ | - |
+| `DEBUG_MODE` | デバッグモード | ❌ | false |
+| `BATCH_SCHEDULE_HOURS` | バッチ処理時刻 | ❌ | 2,3,4 |
+| `MAX_DAILY_REQUESTS` | 最大日次リクエスト数 | ❌ | 1 |
+| `STORAGE_PATH` | ストレージパス | ❌ | /tmp/letters.json |
+| `BACKUP_PATH` | バックアップパス | ❌ | /tmp/backup |
+| `LOG_LEVEL` | ログレベル | ❌ | INFO |
+| `STREAMLIT_PORT` | Streamlitポート | ❌ | 7860 |
+| `SESSION_TIMEOUT` | セッションタイムアウト | ❌ | 3600 |
+
+## 🚀 デプロイメント
 
 ### Hugging Face Spacesでのデプロイ
 
 1. このディレクトリの全ファイルをHugging Face Spacesリポジトリにアップロード
 2. Space設定で以下を設定:
-   - **SDK**: "Docker"
+   - **SDK**: "Streamlit"
    - **Hardware**: CPU basic（推奨）
-3. 環境変数を設定（Settings > Variables and secrets）:
-   - `TOGETHER_API_KEY`: Together.ai APIキー（**必須**）
-   - `GROQ_API_KEY`: Groq APIキー（シーン検出用、**必須**）
-   - `SYSTEM_PROMPT_MARI`: システムプロンプト（オプション）
-
-**注意**: 
-- Docker SDKを使用するため、自動的にDockerfileからビルドされます
-- `TOGETHER_API_KEY`が設定されていない場合、デモモードで動作しますが機能が制限されます
-- `GROQ_API_KEY`が設定されていない場合、シーン変更機能が無効になります
-- Together.ai APIキーは [Together.ai Console](https://api.together.xyz/) で取得
-- Groq APIキーは [Groq Console](https://console.groq.com/keys) で取得
-
-### ローカルDockerでのデプロイ
-
-Dockerファイルが必要な場合は、プロジェクトのルートディレクトリから取得してください。
+3. 環境変数を設定（Settings > Variables and secrets）
+4. 自動的にアプリケーションが起動します
 
 ### ローカル実行
 
@@ -46,50 +76,21 @@ pip install -r requirements.txt
 streamlit run streamlit_app.py
 ```
 
-## 📋 機能一覧
+## 📋 使用方法
 
-- ✅ リアルタイムチャット機能
-- ✅ 好感度システム
-- ✅ 動的背景変更
-- ✅ セッション状態管理
-- ✅ 感情分析
-- ✅ メモリ管理
-- ✅ エラーハンドリング
-- ✅ レスポンシブUI
+1. Webインターフェースにアクセス
+2. ユーザーIDを入力
+3. 手紙生成をリクエスト
+4. バッチ処理で自動生成される手紙を確認
 
-## 🧪 テスト結果
+## 🧪 開発
 
-- 統合テスト: ✅ 全テスト通過
-- Gradio機能比較: ✅ 100% 機能移行完了
+テスト実行：
 
-## 📁 ファイル構成
-
+```bash
+python tests/test_config_setup.py
 ```
-spaces/
-├── app.py                 # HF Spaces用エントリーポイント
-├── streamlit_app.py       # メインアプリケーション
-├── requirements.txt       # 依存関係
-├── healthcheck.py        # ヘルスチェック用
-├── components/           # UIコンポーネント
-├── core/                # コア機能
-├── static/              # 静的ファイル
-└── .streamlit/          # Streamlit設定
-```
-
-## 🔧 環境変数
-
-| 変数名 | 説明 | 必須 |
-|--------|------|------|
-| `TOGETHER_API_KEY` | Together AI APIキー | ✅ |
-| `SYSTEM_PROMPT_MARI` | システムプロンプト | ❌ |
-| `STREAMLIT_SERVER_PORT` | サーバーポート | ❌ |
 
 ## 📞 サポート
 
-問題が発生した場合は、healthcheck.pyを実行して診断情報を確認してください。
-
-```bash
-python healthcheck.py
-```
-
-![alt text](image.png)
+問題が発生した場合は、ログを確認してください。デバッグモードを有効にすると詳細な情報が表示されます。
