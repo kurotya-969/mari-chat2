@@ -34,20 +34,19 @@ class ChatInterface:
                 with st.expander("💭 過去の会話の記憶", expanded=False):
                     st.info(memory_summary)
             
-            # 初回メッセージ
-            if not messages:
-                with st.chat_message("assistant"):
-                    st.markdown("何の用？遊びに来たの？")
-                return
-            
             # 既存のメッセージを表示
             for message in messages:
                 role = message.get("role", "user")
                 content = message.get("content", "")
                 timestamp = message.get("timestamp")
+                is_initial = message.get("is_initial", False)
                 
                 with st.chat_message(role):
-                    st.markdown(content)
+                    if is_initial:
+                        # 初期メッセージにアニメーションを適用
+                        st.markdown(f'<div class="mari-initial-message">{content}</div>', unsafe_allow_html=True)
+                    else:
+                        st.markdown(content)
                     
                     # デバッグモードの場合はタイムスタンプを表示
                     if st.session_state.get("debug_mode", False) and timestamp:

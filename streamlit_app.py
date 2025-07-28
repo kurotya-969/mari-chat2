@@ -38,7 +38,9 @@ MAX_HISTORY_TURNS = 50
 def initialize_session_state():
     """Streamlit session stateを初期化する"""
     if 'initialized' not in st.session_state:
-        st.session_state.messages = []
+        st.session_state.messages = [
+            {"role": "assistant", "content": "何の用？遊びに来たの？", "is_initial": True}
+        ]
         st.session_state.affection = 30
         st.session_state.scene_params = {"theme": "default"}
         st.session_state.limiter_state = {"timestamps": [], "is_blocked": False}
@@ -52,6 +54,39 @@ def inject_custom_css(file_path="streamlit_styles.css"):
         with open(file_path, "r", encoding="utf-8") as f:
             css = f.read()
         st.markdown(f"<style>{css}</style>", unsafe_allow_html=True)
+        
+        # 自動スクロール用のJavaScript
+        auto_scroll_js = """
+        <script>
+        function scrollToBottom() {
+            setTimeout(function() {
+                const chatContainer = parent.document.querySelector('.main .block-container');
+                if (chatContainer) {
+                    chatContainer.scrollTop = chatContainer.scrollHeight;
+                }
+            }, 100);
+        }
+        
+        // メッセージが追加されたときに自動スクロール
+        const observer = new MutationObserver(function(mutations) {
+            mutations.forEach(function(mutation) {
+                if (mutation.type === 'childList' && mutation.addedNodes.length > 0) {
+                    scrollToBottom();
+                }
+            });
+        });
+        
+        // チャットコンテナを監視
+        setTimeout(function() {
+            const chatContainer = parent.document.querySelector('.main .block-container');
+            if (chatContainer) {
+                observer.observe(chatContainer, { childList: true, subtree: true });
+            }
+        }, 1000);
+        </script>
+        """
+        st.markdown(auto_scroll_js, unsafe_allow_html=True)
+        
         logger.info(f"カスタムCSS ({file_path}) を注入しました。")
     except FileNotFoundError:
         logger.warning(f"警告: CSSファイルが見つかりません: {file_path}。")
@@ -91,7 +126,9 @@ def render_sidebar(background_manager, sentiment_analyzer):
                     )
             
             if st.button("🔄 会話をリセット", type="secondary", use_container_width=True):
-                st.session_state.messages = []
+                st.session_state.messages = [
+                    {"role": "assistant", "content": "何の用？遊びに来たの？", "is_initial": True}
+                ]
                 st.session_state.affection = 30
                 st.session_state.scene_params = {"theme": "default"}
                 if 'memory_manager' in st.session_state:
