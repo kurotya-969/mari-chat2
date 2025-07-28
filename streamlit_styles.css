@@ -17,10 +17,18 @@
 
 /* メインコンテナのオーバーレイ */
 .stApp > div:first-child {
-    background: rgba(255, 255, 255, 0.9);
+    background: rgba(255, 255, 255, 0.85);
     backdrop-filter: blur(5px);
     min-height: 100vh;
     transition: background 1.5s ease-in-out, backdrop-filter 1.5s ease-in-out;
+}
+
+/* メインコンテンツエリアの背景を調整 */
+.main .block-container {
+    background: rgba(0, 0, 0, 0.1) !important;
+    border-radius: 15px !important;
+    padding: 20px !important;
+    margin: 10px !important;
 }
 
 /* === チャットメッセージ === */
@@ -88,10 +96,43 @@
 
 /* サイドバー内のテキスト */
 [data-testid="stSidebar"] .stMarkdown,
-[data-testid="stSidebar"] .stMetric,
 [data-testid="stSidebar"] label {
     color: #333 !important;
     text-shadow: none;
+}
+
+/* サイドバー内のメトリクス（好感度表示）*/
+[data-testid="stSidebar"] .stMetric {
+    background: rgba(255, 255, 255, 0.95) !important;
+    padding: 10px !important;
+    border-radius: 8px !important;
+    border: 1px solid rgba(0, 0, 0, 0.1) !important;
+    margin: 5px 0 !important;
+}
+
+[data-testid="stSidebar"] .stMetric [data-testid="metric-container"] {
+    background: transparent !important;
+}
+
+[data-testid="stSidebar"] .stMetric [data-testid="metric-container"] > div {
+    color: #2c3e50 !important;
+}
+
+[data-testid="stSidebar"] .stMetric [data-testid="metric-container"] > div:first-child {
+    color: #555 !important;
+    font-size: 0.9em !important;
+    font-weight: 500 !important;
+}
+
+[data-testid="stSidebar"] .stMetric [data-testid="metric-container"] > div:last-child {
+    color: #2c3e50 !important;
+    font-weight: bold !important;
+    font-size: 1.4em !important;
+}
+
+/* サイドバー内のすべてのメトリクステキストを強制的に黒にする */
+[data-testid="stSidebar"] .stMetric * {
+    color: #2c3e50 !important;
 }
 
 /* === 入力フィールド === */
@@ -174,13 +215,25 @@
 
 /* === プログレスバー（好感度ゲージ用） === */
 .stProgress > div > div > div {
-    background: linear-gradient(90deg, #ff6b6b, #feca57, #48dbfb, #ff9ff3, #54a0ff) !important;
+    background: linear-gradient(90deg, #e74c3c 0%, #f39c12 25%, #f1c40f 50%, #2ecc71 75%, #3498db 100%) !important;
+    border-radius: 10px !important;
 }
 .stProgress {
-    border-radius: 10px;
+    border-radius: 10px !important;
     height: 20px !important;
-    border: 1px solid rgba(255, 255, 255, 0.2);
-    background: rgba(0, 0, 0, 0.3);
+    border: 2px solid rgba(0, 0, 0, 0.2) !important;
+    background: rgba(255, 255, 255, 0.8) !important;
+    box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.1) !important;
+}
+
+/* サイドバー内のプログレスバー */
+[data-testid="stSidebar"] .stProgress {
+    margin: 10px 0 !important;
+}
+
+[data-testid="stSidebar"] .stProgress > div > div > div {
+    background: linear-gradient(90deg, #e74c3c 0%, #f39c12 25%, #f1c40f 50%, #2ecc71 75%, #3498db 100%) !important;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2) !important;
 }
 
 /* === Expander（折りたたみ要素）のスタイル === */
@@ -213,6 +266,54 @@
     text-shadow: none; 
 }
 
+/* メインタイトルを強制的に白文字に変更 */
+.main .stMarkdown h1,
+.main h1,
+[data-testid="stAppViewContainer"] h1,
+.stApp .main h1,
+.block-container h1 {
+    color: white !important;
+    font-weight: bold !important;
+    text-shadow: none !important;
+    background: rgba(0, 0, 0, 0.4) !important;
+    padding: 10px 15px !important;
+    border-radius: 8px !important;
+    margin: 10px 0 !important;
+    border: 2px solid rgba(255, 255, 255, 0.2) !important;
+}
+
+/* メインエリアの説明文も白文字にする */
+.main .stMarkdown p,
+.main p,
+[data-testid="stAppViewContainer"] p,
+.stApp .main p,
+.block-container p {
+    color: white !important;
+    text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.8) !important;
+    background: rgba(0, 0, 0, 0.2) !important;
+    padding: 8px 12px !important;
+    border-radius: 6px !important;
+    margin: 8px 0 !important;
+}
+
+/* サイドバー以外のすべてのMarkdownテキストを白文字にする */
+.main .stMarkdown:not([data-testid="stSidebar"] .stMarkdown) {
+    color: white !important;
+}
+
+/* より具体的なセレクターでタイトルを白文字にする */
+div[data-testid="stAppViewContainer"] .main .stMarkdown h1,
+div[data-testid="stAppViewContainer"] .main h1 {
+    color: white !important;
+    font-weight: bold !important;
+    text-shadow: 3px 3px 6px rgba(0, 0, 0, 0.9) !important;
+    background: rgba(0, 0, 0, 0.4) !important;
+    padding: 12px 18px !important;
+    border-radius: 10px !important;
+    border: 2px solid rgba(255, 255, 255, 0.3) !important;
+    margin: 15px 0 !important;
+}
+
 /* === アニメーション === */
 @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
 .scene-transition { animation: fadeIn 2s ease-in-out; }
@@ -235,9 +336,35 @@
     display: none !important;
 }
 
-/* 2. サイドバー内の st.metric のデフォルトラベルを非表示（Python側でlabel="好感度"と設定済みのため） */
-[data-testid="stMetric"] label {
-    display: none !important;
+/* 2. メトリクスの表示を改善（サイドバー以外） */
+[data-testid="stMetric"] {
+    background: rgba(255, 255, 255, 0.9) !important;
+    padding: 8px !important;
+    border-radius: 6px !important;
+    border: 1px solid rgba(0, 0, 0, 0.1) !important;
+}
+
+[data-testid="stMetric"] [data-testid="metric-container"] > div {
+    color: #2c3e50 !important;
+}
+
+[data-testid="stMetric"] [data-testid="metric-container"] > div:first-child {
+    color: #555 !important;
+    font-size: 0.9em !important;
+}
+
+[data-testid="stMetric"] [data-testid="metric-container"] > div:last-child {
+    color: #2c3e50 !important;
+    font-weight: bold !important;
+    font-size: 1.4em !important;
+}
+
+/* サイドバー内のメトリクスを最優先で黒文字にする */
+[data-testid="stSidebar"] [data-testid="stMetric"] [data-testid="metric-container"] > div,
+[data-testid="stSidebar"] [data-testid="stMetric"] [data-testid="metric-container"] > div > div,
+[data-testid="stSidebar"] [data-testid="stMetric"] span,
+[data-testid="stSidebar"] [data-testid="stMetric"] p {
+    color: #2c3e50 !important;
 }
 
 /* 3. サイドバーのデバッグ用チェックボックスなどを非表示 */
