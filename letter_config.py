@@ -64,7 +64,7 @@ class Config:
 
     # --- AIモデル設定 ---
     # 手紙の論理構造を生成するためのGroqモデル
-    GROQ_MODEL: str = os.getenv("GROQ_MODEL", "mixtral-8x7b-instruct")
+    GROQ_MODEL: str = os.getenv("GROQ_MODEL", "compound-beta")
     # 手紙の感情表現を生成するためのTogether AIモデル
     TOGETHER_API_MODEL: str = os.getenv("TOGETHER_API_MODEL", "Qwen/Qwen3-235B-A22B-Instruct-2507-tput")
 

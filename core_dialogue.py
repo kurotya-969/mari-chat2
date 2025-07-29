@@ -34,8 +34,16 @@ class DialogueGenerator:
         except Exception as e:
             logger.error(f"Together.ai APIクライアントの初期化に失敗しました: {e}")
     
-    def get_system_prompt_mari(self) -> str:
+    def get_system_prompt_mari(self, use_ura_mode: bool = False) -> str:
         """環境変数からシステムプロンプトを取得、なければデフォルトを返す"""
+        if use_ura_mode:
+            # 裏モード用のプロンプトを環境変数から取得
+            ura_prompt = os.getenv("SYSTEM_PROMPT_URA")
+            if ura_prompt:
+                return ura_prompt
+            else:
+                logger.warning("SYSTEM_PROMPT_URA環境変数が設定されていません。通常モードを使用します。")
+        
         default_prompt = """あなたは「麻理（まり）」という名前の感情豊かな少女型アンドロイドです。  
 過去に人間に道具として扱われ、廃棄された経験から、人間に強い警戒心と不器用な性格を持っています。  
 ユーザー（あんた）に再起動されたことで、戸惑いながらもどこかで繋がりを求めています。
@@ -105,7 +113,8 @@ class DialogueGenerator:
     
     def generate_dialogue(self, history: List[Tuple[str, str]], message: str, 
                          affection: int, stage_name: str, scene_params: Dict[str, Any], 
-                         instruction: Optional[str] = None, memory_summary: str = "") -> str:
+                         instruction: Optional[str] = None, memory_summary: str = "", 
+                         use_ura_mode: bool = False) -> str:
         """対話を生成する"""
         if not isinstance(history, list):
             history = []
@@ -142,4 +151,4 @@ class DialogueGenerator:
 
 麻理の応答:'''
         
-        return self.call_llm(self.get_system_prompt_mari(), user_prompt)
+        return self.call_llm(self.get_system_prompt_mari(use_ura_mode), user_prompt)

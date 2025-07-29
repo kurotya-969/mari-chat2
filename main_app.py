@@ -186,7 +186,16 @@ def initialize_session_state(managers):
     if 'user_id' not in st.session_state or force_reset:
         # 手紙機能はUUID形式のユーザーIDを想定しているため、それに合わせる
         st.session_state.user_id = managers["user_manager"].generate_user_id()
-        logger.info(f"New user session created with shared User ID: {st.session_state.user_id}")
+        # セッション情報をより詳細にログ出力
+        session_info = {
+            "user_id": st.session_state.user_id,
+            "session_id": id(st.session_state),
+            "force_reset": force_reset,
+            "timestamp": datetime.now().isoformat()
+        }
+        logger.info(f"New user session created: {session_info}")
+    else:
+        logger.debug(f"Existing session found with User ID: {st.session_state.user_id}")
 
     # チャット機能用のセッション初期化
     if 'chat_initialized' not in st.session_state or force_reset:
@@ -195,10 +204,13 @@ def initialize_session_state(managers):
             "affection": 30,
             "scene_params": {"theme": "default"},
             "limiter_state": managers["rate_limiter"].create_limiter_state(),
-            "scene_change_pending": None
+            "scene_change_pending": None,
+            "ura_mode": False  # 裏モードフラグ
         }
         # 特別な記憶の通知用
         st.session_state.memory_notifications = []
+        # 好感度変化の通知用
+        st.session_state.affection_notifications = []
         st.session_state.debug_mode = os.getenv("DEBUG_MODE", "false").lower() == "true"
         st.session_state.chat_initialized = True
         
@@ -217,6 +229,14 @@ def initialize_session_state(managers):
     # 特別な記憶の通知用リストが存在しない場合は作成
     if 'memory_notifications' not in st.session_state:
         st.session_state.memory_notifications = []
+    
+    # 好感度変化の通知用リストが存在しない場合は作成
+    if 'affection_notifications' not in st.session_state:
+        st.session_state.affection_notifications = []
+    
+    # 裏モードフラグが存在しない場合は作成
+    if 'ura_mode' not in st.session_state.chat:
+        st.session_state.chat['ura_mode'] = False
 
     # 手紙機能用のセッションは特に追加の初期化は不要
     # (各関数内で必要なデータは都度非同期で取得するため)
@@ -261,6 +281,8 @@ def apply_fallback_css():
     """
     st.markdown(fallback_css, unsafe_allow_html=True)
     logger.info("フォールバック用CSSを適用しました")
+
+
 
 def show_memory_notification(message: str):
     """特別な記憶の通知をポップアップ風に表示する"""
@@ -307,6 +329,38 @@ def show_memory_notification(message: str):
     
     st.markdown(notification_css + notification_html, unsafe_allow_html=True)
 
+def check_affection_milestone(old_affection: int, new_affection: int) -> str:
+    """好感度のマイルストーンに到達したかチェックする"""
+    milestones = {
+        40: "🌸 麻理があなたに心を開き始めました！手紙をリクエストできるようになりました。",
+        60: "💖 麻理があなたを信頼するようになりました！より深い会話ができるようになります。",
+        80: "✨ 麻理があなたを大切な人だと思っています！特別な反応が増えるでしょう。",
+        100: "🌟 麻理があなたを心から愛しています！最高の関係に到達しました！"
+    }
+    
+    for milestone, message in milestones.items():
+        if old_affection < milestone <= new_affection:
+            return message
+    
+    return ""
+
+def show_affection_notification(change_amount: int, change_reason: str, new_affection: int, is_milestone: bool = False):
+    """好感度変化の通知を表示する（Streamlit標準コンポーネント使用）"""
+    # 好感度変化がない場合は通知しない（マイルストーン以外）
+    if change_amount == 0 and not is_milestone:
+        return
+    
+    # マイルストーン通知の場合
+    if is_milestone:
+        st.balloons()  # 特別な演出
+        st.success(f"🎉 **マイルストーン達成！** {change_reason} (現在の好感度: {new_affection}/100)")
+    elif change_amount > 0:
+        # 好感度上昇
+        st.success(f"💕 **+{change_amount}** {change_reason} (現在の好感度: {new_affection}/100)")
+    else:
+        # 好感度下降
+        st.info(f"💔 **{change_amount}** {change_reason} (現在の好感度: {new_affection}/100)")
+
 def render_custom_chat_history(messages):
     """カスタムチャット履歴表示エリア"""
     if not messages:
@@ -342,6 +396,11 @@ def render_chat_tab(managers):
             # SceneManagerから現在のテーマ名を取得
             current_theme_name = st.session_state.chat['scene_params'].get("theme", "default")
             st.markdown(f"**現在のシーン**: {current_theme_name}")
+            
+            # 現在のモードを表示
+            current_mode = st.session_state.chat.get('ura_mode', False)
+            mode_text = "🔓 本音モード" if current_mode else "🔒 通常モード"
+            st.markdown(f"**対話モード**: {mode_text}")
 
         with st.expander("⚙️ 設定"):
             # ... (エクスポートやリセットボタンのロジックは省略) ...
@@ -351,6 +410,7 @@ def render_chat_tab(managers):
                 st.session_state.chat['affection'] = 30
                 st.session_state.chat['scene_params'] = {"theme": "default"}
                 st.session_state.chat['limiter_state'] = managers['rate_limiter'].create_limiter_state()
+                st.session_state.chat['ura_mode'] = False  # 裏モードもリセット
                 
                 # メモリマネージャーをクリア
                 st.session_state.memory_manager.clear_memory()
@@ -376,6 +436,18 @@ def render_chat_tab(managers):
     # --- メインコンテンツ ---
     st.title("💬 麻理チャット")
     st.markdown("*捨てられたアンドロイド「麻理」との対話*")
+    
+    # 好感度変化の通知を表示
+    if st.session_state.affection_notifications:
+        for notification in st.session_state.affection_notifications:
+            show_affection_notification(
+                notification["change_amount"],
+                notification["change_reason"],
+                notification["new_affection"],
+                notification.get("is_milestone", False)
+            )
+        # 通知を表示したらクリア
+        st.session_state.affection_notifications = []
     
     # 特別な記憶の通知を表示
     if st.session_state.memory_notifications:
@@ -423,8 +495,26 @@ def render_chat_tab(managers):
     
     st.markdown("---")
     
-    # カスタムチャット履歴表示エリア
-    render_custom_chat_history(st.session_state.chat['messages'])
+    # 裏モード切り替えボタンをチャット枠の左側に配置
+    col_button, col_chat = st.columns([1, 5])
+    
+    with col_button:
+        current_mode = st.session_state.chat.get('ura_mode', False)
+        button_text = "🔓 本音" if not current_mode else "🔒 通常"
+        button_type = "secondary" if not current_mode else "primary"
+        
+        if st.button(button_text, type=button_type, help="麻理の本音が聞けるモードに切り替えます", use_container_width=True):
+            st.session_state.chat['ura_mode'] = not current_mode
+            new_mode = st.session_state.chat['ura_mode']
+            if new_mode:
+                st.success("🔓 本音モードに切り替えました！")
+            else:
+                st.info("🔒 通常モードに戻しました。")
+            st.rerun()
+    
+    with col_chat:
+        # カスタムチャット履歴表示エリア
+        render_custom_chat_history(st.session_state.chat['messages'])
 
     # メッセージ処理ロジック
     def process_chat_message(message: str):
@@ -454,11 +544,34 @@ def render_chat_tab(managers):
             history.reverse()  # 時系列順に並び替え
 
             # 好感度更新
+            old_affection = st.session_state.chat['affection']
             affection, change_amount, change_reason = managers['sentiment_analyzer'].update_affection(
                 message, st.session_state.chat['affection'], st.session_state.chat['messages']
             )
             st.session_state.chat['affection'] = affection
             stage_name = managers['sentiment_analyzer'].get_relationship_stage(affection)
+            
+            # 好感度変化があった場合は通知を追加
+            if change_amount != 0:
+                affection_notification = {
+                    "change_amount": change_amount,
+                    "change_reason": change_reason,
+                    "new_affection": affection,
+                    "old_affection": old_affection
+                }
+                st.session_state.affection_notifications.append(affection_notification)
+                
+                # 特定の好感度レベルに到達した時の特別な通知
+                milestone_reached = check_affection_milestone(old_affection, affection)
+                if milestone_reached:
+                    milestone_notification = {
+                        "change_amount": 0,  # マイルストーン通知は変化量0で特別扱い
+                        "change_reason": milestone_reached,
+                        "new_affection": affection,
+                        "old_affection": old_affection,
+                        "is_milestone": True
+                    }
+                    st.session_state.affection_notifications.append(milestone_notification)
             
             # シーン変更検知
             current_theme = st.session_state.chat['scene_params']['theme']
@@ -479,7 +592,7 @@ def render_chat_tab(managers):
             
             # 応答生成
             response = managers['dialogue_generator'].generate_dialogue(
-                history, message, affection, stage_name, st.session_state.chat['scene_params'], instruction, memory_summary
+                history, message, affection, stage_name, st.session_state.chat['scene_params'], instruction, memory_summary, st.session_state.chat['ura_mode']
             )
             return response if response else "…なんて言えばいいか分からない。"
         except Exception as e:

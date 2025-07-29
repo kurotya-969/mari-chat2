@@ -19,7 +19,7 @@ class GroqClient:
             raise ValueError("GROQ_API_KEY environment variable is required")
         
         self.client = AsyncGroq(api_key=self.api_key)
-        self.model = "mixtral-8x7b-instruct"
+        self.model = "compound-beta"
         self.max_retries = 3
         self.retry_delay = 1.0
     
