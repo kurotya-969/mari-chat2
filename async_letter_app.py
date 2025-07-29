@@ -6,13 +6,12 @@ Main application module
 import asyncio
 import sys
 from pathlib import Path
+
+# このファイルが依存している他のモジュールをインポート
 from letter_config import Config
 from letter_logger import get_app_logger
 
-# プロジェクトルートをPythonパスに追加
-project_root = Path(__file__).parent.parent
-sys.path.insert(0, str(project_root))
-
+# このモジュール用のロガーを取得
 logger = get_app_logger()
 
 class LetterApp:
@@ -67,7 +66,9 @@ class LetterApp:
     async def _setup_log_directories(self):
         """ログディレクトリを作成"""
         if not self.config.DEBUG_MODE:
-            log_dir = Path("/mnt/data/logs")
+            # ログファイルは個別のロガーで設定されるため、
+            # ここでは共通の親ディレクトリを作成する例
+            log_dir = Path("/tmp/logs") # 例: /tmp/batch.log などの親
             log_dir.mkdir(parents=True, exist_ok=True)
             self.logger.info(f"ログディレクトリを作成: {log_dir}")
     
@@ -79,7 +80,7 @@ class LetterApp:
         """設定オブジェクトを取得"""
         return self.config
 
-# グローバルアプリケーションインスタンス
+# グローバルアプリケーションインスタンス（シングルトンパターン）
 app_instance = None
 
 async def get_app() -> LetterApp:
@@ -93,7 +94,7 @@ async def get_app() -> LetterApp:
     return app_instance
 
 def run_app():
-    """アプリケーションを実行"""
+    """アプリケーションを実行（テスト用）"""
     async def main():
         app = await get_app()
         if app.is_initialized():
@@ -104,5 +105,6 @@ def run_app():
     
     asyncio.run(main())
 
+# このファイルが直接実行された場合にテスト用の起動処理を行う
 if __name__ == "__main__":
     run_app()

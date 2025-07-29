@@ -4,13 +4,14 @@ emoji: 💌
 colorFrom: pink
 colorTo: purple
 sdk: streamlit
+app_file: main_app.py
 pinned: false
 license: mit
 ---
 
 # 非同期手紙生成アプリ（麻理AI）
 
-Hugging Face Spaces用の非同期手紙生成アプリケーションです。
+Hugging Face Spaces用の非同期手紙生成・チャットボットアプリケーションです。
 
 ## 🚀 機能
 

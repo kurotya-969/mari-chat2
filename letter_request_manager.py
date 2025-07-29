@@ -35,7 +35,7 @@ class RequestManager:
         
         logger.info(f"RequestManager初期化完了 - 有効な生成時刻: {self.valid_generation_hours}")
     
-    async def submit_request(self, user_id: str, theme: str, generation_hour: int) -> Tuple[bool, str]:
+    async def submit_request(self, user_id: str, theme: str, generation_hour: int, affection: int = None) -> Tuple[bool, str]:
         """
         リクエストを送信する
         
@@ -43,6 +43,7 @@ class RequestManager:
             user_id: ユーザーID
             theme: 手紙のテーマ
             generation_hour: 生成時刻（2, 3, 4のいずれか）
+            affection: 現在の好感度（オプション）
             
         Returns:
             Tuple[bool, str]: (成功フラグ, メッセージ)
@@ -73,7 +74,8 @@ class RequestManager:
                 "status": "pending",
                 "requested_at": datetime.now().isoformat(),
                 "generation_hour": generation_hour,
-                "request_id": str(uuid.uuid4())
+                "request_id": str(uuid.uuid4()),
+                "affection": affection  # 好感度情報を追加
             }
             
             # ユーザーデータの取得と更新

@@ -20,6 +20,7 @@ class MemoryManager:
         """
         self.history_threshold = history_threshold
         self.important_words_cache = []
+        self.special_memories = {}  # 手紙などの特別な記憶を保存
         
     def extract_important_words(self, messages: List[Dict[str, str]], 
                               dialogue_generator=None) -> List[str]:
@@ -199,15 +200,74 @@ class MemoryManager:
         Returns:
             記憶の要約文字列
         """
-        if not self.important_words_cache:
-            return ""
+        summary_parts = []
         
-        keywords_text = "、".join(self.important_words_cache)
-        return f"過去の会話で言及された重要な要素: {keywords_text}"
+        # 通常の重要単語
+        if self.important_words_cache:
+            keywords_text = "、".join(self.important_words_cache)
+            summary_parts.append(f"過去の会話で言及された重要な要素: {keywords_text}")
+        
+        # 特別な記憶（手紙など）
+        if self.special_memories:
+            for memory_type, memories in self.special_memories.items():
+                if memories:
+                    latest_memory = memories[-1]["content"]
+                    if memory_type == "letter_content":
+                        summary_parts.append(f"最近の手紙の記憶: {latest_memory}")
+                    else:
+                        summary_parts.append(f"{memory_type}: {latest_memory}")
+        
+        return "\n".join(summary_parts) if summary_parts else ""
+    
+    def add_important_memory(self, memory_type: str, content: str) -> str:
+        """
+        重要な記憶を追加する（手紙の内容など）
+        
+        Args:
+            memory_type: 記憶の種類（例: "letter_content"）
+            content: 記憶する内容
+            
+        Returns:
+            ユーザーに表示する通知メッセージ
+        """
+        if memory_type not in self.special_memories:
+            self.special_memories[memory_type] = []
+        
+        self.special_memories[memory_type].append({
+            "content": content,
+            "timestamp": logging.Formatter().formatTime(logging.LogRecord("", 0, "", 0, "", (), None))
+        })
+        
+        # 最大5件まで保持
+        if len(self.special_memories[memory_type]) > 5:
+            self.special_memories[memory_type] = self.special_memories[memory_type][-5:]
+        
+        logger.info(f"特別な記憶を追加しました: {memory_type}")
+        
+        # 記憶の種類に応じた通知メッセージを生成
+        if memory_type == "letter_content":
+            return "🧠✨ 麻理の記憶に新しい手紙の内容が刻まれました。今後の会話でこの記憶を参照することがあります。"
+        else:
+            return f"🧠✨ 麻理の記憶に新しい{memory_type}が追加されました。"
+    
+    def get_special_memories(self, memory_type: str = None) -> Dict[str, Any]:
+        """
+        特別な記憶を取得する
+        
+        Args:
+            memory_type: 取得する記憶の種類（Noneの場合は全て）
+            
+        Returns:
+            記憶の辞書
+        """
+        if memory_type:
+            return self.special_memories.get(memory_type, [])
+        return self.special_memories
     
     def clear_memory(self):
         """メモリをクリアする"""
         self.important_words_cache = []
+        self.special_memories = {}
         logger.info("メモリをクリアしました")
     
     def get_memory_stats(self) -> Dict[str, Any]:
@@ -220,5 +280,7 @@ class MemoryManager:
         return {
             "cached_keywords_count": len(self.important_words_cache),
             "cached_keywords": self.important_words_cache,
+            "special_memories_count": sum(len(memories) for memories in self.special_memories.values()),
+            "special_memories": self.special_memories,
             "history_threshold": self.history_threshold
         }

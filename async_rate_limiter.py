@@ -23,7 +23,7 @@ class RateLimitError(Exception):
 class AsyncRateLimitManager:
     """非同期レート制限管理クラス"""
     
-    def __init__(self, storage_manager):
+    def __init__(self, storage_manager, max_requests: int = 1):
         self.storage = storage_manager
         
         # 設定値（環境変数から取得、デフォルト値あり）

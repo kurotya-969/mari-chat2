@@ -177,7 +177,7 @@ class SceneManager:
             
             # Groq APIを呼び出し
             response = self.groq_client.chat.completions.create(
-                model="llama-3.3-70b-versatile",
+                model="mixtral-8x7b-instruct",
                 messages=[
                     {"role": "system", "content": system_prompt},
                     {"role": "user", "content": user_prompt}

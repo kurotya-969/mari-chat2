@@ -20,7 +20,7 @@ class TogetherClient:
             raise ValueError("TOGETHER_API_KEY environment variable is required")
         
         self.base_url = "https://api.together.xyz/v1/chat/completions"
-        self.model = "meta-llama/Llama-2-70b-chat-hf"
+        self.model = "Qwen/Qwen3-235B-A22B-Instruct-2507-tput"
         self.max_retries = 3
         self.retry_delay = 1.0
     

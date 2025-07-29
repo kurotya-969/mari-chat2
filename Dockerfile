@@ -57,4 +57,4 @@ EXPOSE 7860
 HEALTHCHECK CMD curl --fail http://localhost:7860/_stcore/health
 
 # Streamlitアプリケーションを起動
-CMD ["streamlit", "run", "streamlit_app.py", "--server.port=7860", "--server.address=0.0.0.0", "--server.headless=true", "--server.enableCORS=false", "--server.enableXsrfProtection=false"]
+CMD ["streamlit", "run", "main_app.py", "--server.port=7860", "--server.address=0.0.0.0", "--server.headless=true", "--server.enableCORS=false", "--server.enableXsrfProtection=false"]

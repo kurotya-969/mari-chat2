@@ -36,7 +36,7 @@ class LetterGenerator:
                     'theme': 'テーマ',
                     'generated_at': '生成日時',
                     'groq_model': 'モデル名',
-                    'gemini_model': 'モデル名',
+                    'together_model': 'モデル名',
                     'generation_time': 生成時間（秒）,
                     'user_id': 'ユーザーID'
                 }

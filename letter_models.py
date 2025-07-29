@@ -253,8 +253,8 @@ def create_sample_data():
         content="桜の花びらが舞い散る季節になりました。あなたとの思い出が蘇ります...",
         generated_at=now,
         metadata={
-            "groq_model": "mixtral-8x7b-32768",
-            "gemini_model": "gemini-pro",
+            "groq_model": "mixtral-8x7b-instruct",
+            "Together_model": "Qwen/Qwen3-235B-A22B-Instruct-2507-tput",
             "generation_time": 12.5
         }
     )

@@ -121,7 +121,7 @@ def get_system_info() -> dict:
         "generation_timeout": Config.GENERATION_TIMEOUT,
         "max_concurrent_generations": Config.MAX_CONCURRENT_GENERATIONS,
         "groq_model": Config.GROQ_MODEL,
-        "gemini_model": Config.GEMINI_MODEL,
+        "Together_model": Config.TOGETHER_API_MODEL,
         "available_themes": Config.AVAILABLE_THEMES,
         "space_id": os.getenv("SPACE_ID", "local"),
         "streamlit_port": Config.STREAMLIT_PORT
