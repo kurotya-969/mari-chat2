@@ -6,8 +6,10 @@ import logging
 import os
 import asyncio
 import sys
+import time
 from datetime import datetime
 from dotenv import load_dotenv
+from contextlib import contextmanager
 
 # --- 基本設定 ---
 # 非同期処理の問題を解決 (Windows向け)
@@ -32,6 +34,7 @@ from core_scene_manager import SceneManager  # 復元したモジュール
 from core_memory_manager import MemoryManager
 from components_chat_interface import ChatInterface
 from components_status_display import StatusDisplay
+from session_manager import SessionManager, get_session_manager, validate_session_state, perform_detailed_session_validation
 # << 手紙生成用モジュール >>
 from letter_config import Config
 from letter_logger import setup_logger as setup_letter_logger
@@ -178,24 +181,47 @@ def initialize_all_managers():
 def initialize_session_state(managers):
     """
     アプリケーション全体のセッションステートを初期化する
+    SessionManagerを使用してセッション分離を強化
     """
     # 強制リセットフラグ（開発時用）
     force_reset = os.getenv("FORCE_SESSION_RESET", "false").lower() == "true"
+    
+    # SessionManagerの初期化（セッション分離強化）
+    session_manager = get_session_manager()
+    
+    # セッション整合性チェックを初期化時に実行
+    if not validate_session_state():
+        logger.error("Session validation failed during initialization")
+        # 復旧に失敗した場合は強制リセット
+        force_reset = True
     
     # 共通のユーザーIDを生成
     if 'user_id' not in st.session_state or force_reset:
         # 手紙機能はUUID形式のユーザーIDを想定しているため、それに合わせる
         st.session_state.user_id = managers["user_manager"].generate_user_id()
+        
+        # SessionManagerにユーザーIDを設定
+        session_manager.set_user_id(st.session_state.user_id)
+        
         # セッション情報をより詳細にログ出力
         session_info = {
             "user_id": st.session_state.user_id,
             "session_id": id(st.session_state),
+            "streamlit_session_id": st.session_state.get('_session_id', 'unknown'),
             "force_reset": force_reset,
-            "timestamp": datetime.now().isoformat()
+            "timestamp": datetime.now().isoformat(),
+            "session_manager_info": str(session_manager)
         }
-        logger.info(f"New user session created: {session_info}")
+        logger.info(f"New user session created with SessionManager: {session_info}")
+        
+        # セッション固有の識別子を保存
+        st.session_state._session_id = id(st.session_state)
     else:
-        logger.debug(f"Existing session found with User ID: {st.session_state.user_id}")
+        # 既存セッションの場合もSessionManagerにユーザーIDを設定
+        if session_manager.user_id != st.session_state.user_id:
+            session_manager.set_user_id(st.session_state.user_id)
+        
+        logger.debug(f"Existing session found with User ID: {st.session_state.user_id}, Session ID: {id(st.session_state)}")
 
     # チャット機能用のセッション初期化
     if 'chat_initialized' not in st.session_state or force_reset:
@@ -220,7 +246,7 @@ def initialize_session_state(managers):
         if force_reset:
             logger.info("Session force reset - all data cleared")
         else:
-            logger.info("Chat session state initialized.")
+            logger.info("Chat session state initialized with SessionManager.")
     
     # MemoryManagerがセッション状態にない場合は作成
     if 'memory_manager' not in st.session_state:
@@ -237,6 +263,11 @@ def initialize_session_state(managers):
     # 裏モードフラグが存在しない場合は作成
     if 'ura_mode' not in st.session_state.chat:
         st.session_state.chat['ura_mode'] = False
+    
+    # 最終的なセッション整合性チェック
+    if not session_manager.validate_session_integrity():
+        logger.warning("Session integrity check failed after initialization")
+        session_manager.recover_session()
 
     # 手紙機能用のセッションは特に追加の初期化は不要
     # (各関数内で必要なデータは都度非同期で取得するため)
@@ -361,6 +392,215 @@ def show_affection_notification(change_amount: int, change_reason: str, new_affe
         # 好感度下降
         st.info(f"💔 **{change_amount}** {change_reason} (現在の好感度: {new_affection}/100)")
 
+def show_cute_thinking_animation():
+    """かわいらしい考え中アニメーションを表示する"""
+    thinking_css = """
+    <style>
+    .thinking-container {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        padding: 20px;
+        background: rgba(255, 255, 255, 0.95);
+        border-radius: 20px;
+        border: 2px solid rgba(255, 182, 193, 0.6);
+        box-shadow: 0 8px 32px rgba(255, 182, 193, 0.3);
+        backdrop-filter: blur(10px);
+        margin: 20px 0;
+        animation: containerPulse 2s ease-in-out infinite;
+    }
+    
+    .thinking-face {
+        font-size: 3em;
+        margin-bottom: 15px;
+        animation: faceRotate 3s ease-in-out infinite;
+        filter: drop-shadow(0 0 10px rgba(255, 105, 180, 0.5));
+    }
+    
+    .thinking-text {
+        font-size: 1.2em;
+        color: #ff69b4;
+        font-weight: 600;
+        margin-bottom: 15px;
+        animation: textGlow 1.5s ease-in-out infinite alternate;
+    }
+    
+    .thinking-dots {
+        display: flex;
+        gap: 8px;
+    }
+    
+    .thinking-dot {
+        width: 12px;
+        height: 12px;
+        border-radius: 50%;
+        background: linear-gradient(45deg, #ff69b4, #ff1493);
+        animation: dotBounce 1.4s ease-in-out infinite;
+    }
+    
+    .thinking-dot:nth-child(1) { animation-delay: 0s; }
+    .thinking-dot:nth-child(2) { animation-delay: 0.2s; }
+    .thinking-dot:nth-child(3) { animation-delay: 0.4s; }
+    
+    @keyframes containerPulse {
+        0%, 100% { transform: scale(1); box-shadow: 0 8px 32px rgba(255, 182, 193, 0.3); }
+        50% { transform: scale(1.02); box-shadow: 0 12px 40px rgba(255, 182, 193, 0.5); }
+    }
+    
+    @keyframes faceRotate {
+        0%, 100% { transform: rotate(0deg); }
+        25% { transform: rotate(-5deg); }
+        75% { transform: rotate(5deg); }
+    }
+    
+    @keyframes textGlow {
+        0% { text-shadow: 0 0 5px rgba(255, 105, 180, 0.5); }
+        100% { text-shadow: 0 0 20px rgba(255, 105, 180, 0.8), 0 0 30px rgba(255, 105, 180, 0.6); }
+    }
+    
+    @keyframes dotBounce {
+        0%, 80%, 100% { transform: translateY(0); opacity: 0.7; }
+        40% { transform: translateY(-15px); opacity: 1; }
+    }
+    
+    .sound-wave {
+        display: flex;
+        gap: 3px;
+        margin-top: 10px;
+    }
+    
+    .sound-bar {
+        width: 4px;
+        height: 20px;
+        background: linear-gradient(to top, #ff69b4, #ff1493);
+        border-radius: 2px;
+        animation: soundWave 1s ease-in-out infinite;
+    }
+    
+    .sound-bar:nth-child(1) { animation-delay: 0s; }
+    .sound-bar:nth-child(2) { animation-delay: 0.1s; }
+    .sound-bar:nth-child(3) { animation-delay: 0.2s; }
+    .sound-bar:nth-child(4) { animation-delay: 0.3s; }
+    .sound-bar:nth-child(5) { animation-delay: 0.4s; }
+    
+    @keyframes soundWave {
+        0%, 100% { height: 20px; }
+        50% { height: 35px; }
+    }
+    </style>
+    """
+    
+    thinking_html = """
+    <div class="thinking-container">
+        <div class="thinking-face">🤔</div>
+        <div class="thinking-text">麻理が考え中...</div>
+        <div class="thinking-dots">
+            <div class="thinking-dot"></div>
+            <div class="thinking-dot"></div>
+            <div class="thinking-dot"></div>
+        </div>
+        <div class="sound-wave">
+            <div class="sound-bar"></div>
+            <div class="sound-bar"></div>
+            <div class="sound-bar"></div>
+            <div class="sound-bar"></div>
+            <div class="sound-bar"></div>
+        </div>
+        <div style="margin-top: 10px; font-size: 0.9em; color: #ff69b4; opacity: 0.8;">
+            💭 あんたのために一生懸命考えてるんだから...
+        </div>
+    </div>
+    """
+    
+    # 音効果のJavaScript（Web Audio APIを使用した実際の音生成）
+    sound_js = """
+    <script>
+    // Web Audio APIを使用した音効果生成
+    function playThinkingSound() {
+        try {
+            const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+            
+            // 柔らかい思考音を生成
+            const oscillator1 = audioContext.createOscillator();
+            const oscillator2 = audioContext.createOscillator();
+            const gainNode = audioContext.createGain();
+            
+            // 周波数設定（優しい音色）
+            oscillator1.frequency.setValueAtTime(220, audioContext.currentTime); // A3
+            oscillator2.frequency.setValueAtTime(330, audioContext.currentTime); // E4
+            
+            // 波形設定（柔らかいサイン波）
+            oscillator1.type = 'sine';
+            oscillator2.type = 'sine';
+            
+            // 音量設定（控えめに）
+            gainNode.gain.setValueAtTime(0, audioContext.currentTime);
+            gainNode.gain.linearRampToValueAtTime(0.1, audioContext.currentTime + 0.1);
+            gainNode.gain.linearRampToValueAtTime(0.05, audioContext.currentTime + 0.5);
+            gainNode.gain.linearRampToValueAtTime(0, audioContext.currentTime + 1.0);
+            
+            // 接続
+            oscillator1.connect(gainNode);
+            oscillator2.connect(gainNode);
+            gainNode.connect(audioContext.destination);
+            
+            // 再生
+            oscillator1.start(audioContext.currentTime);
+            oscillator2.start(audioContext.currentTime);
+            oscillator1.stop(audioContext.currentTime + 1.0);
+            oscillator2.stop(audioContext.currentTime + 1.0);
+            
+            console.log("🎵 麻理の思考音を再生中...");
+            
+        } catch (error) {
+            console.log("音声再生はサポートされていません:", error);
+        }
+    }
+    
+    // 視覚的な音波エフェクトの強化
+    setTimeout(() => {
+        const soundBars = document.querySelectorAll('.sound-bar');
+        soundBars.forEach((bar, index) => {
+            bar.style.animationDuration = (0.8 + Math.random() * 0.4) + 's';
+        });
+        
+        // 音効果を再生（ユーザーインタラクション後のみ）
+        playThinkingSound();
+    }, 100);
+    
+    // 定期的な音波効果
+    setInterval(() => {
+        const soundBars = document.querySelectorAll('.sound-bar');
+        if (soundBars.length > 0) {
+            soundBars.forEach((bar, index) => {
+                const randomHeight = 15 + Math.random() * 25;
+                bar.style.height = randomHeight + 'px';
+            });
+        }
+    }, 200);
+    </script>
+    """
+    
+    return st.markdown(thinking_css + thinking_html + sound_js, unsafe_allow_html=True)
+
+@contextmanager
+def cute_thinking_spinner():
+    """かわいらしい考え中アニメーション付きコンテキストマネージャー"""
+    # アニメーション表示用のプレースホルダー
+    placeholder = st.empty()
+    
+    try:
+        # アニメーション開始
+        with placeholder.container():
+            show_cute_thinking_animation()
+        
+        yield
+        
+    finally:
+        # アニメーション終了
+        placeholder.empty()
+
 def render_custom_chat_history(messages):
     """カスタムチャット履歴表示エリア"""
     if not messages:
@@ -422,16 +662,295 @@ def render_chat_tab(managers):
                 st.rerun()
 
         if st.session_state.debug_mode:
-            with st.expander("🛠️ デバッグ情報"):
-                st.json({
-                    "affection": st.session_state.chat['affection'],
-                    "theme": st.session_state.chat['scene_params']['theme'],
-                    "limiter_state": st.session_state.chat.get('limiter_state', {}),
-                    "messages_count": len(st.session_state.chat['messages']),
-                    "user_id": st.session_state.user_id,
-                    "session_keys": list(st.session_state.keys()),
-                    "memory_cache_size": len(st.session_state.memory_manager.important_words_cache)
-                })
+            with st.expander("🛠️ デバッグ情報", expanded=False):
+                # SessionManagerから詳細情報を取得
+                session_manager = get_session_manager()
+                session_info = session_manager.get_session_info()
+                isolation_status = session_manager.get_isolation_status()
+                
+                # 検証履歴と復旧履歴を取得
+                validation_history = session_manager.get_validation_history(limit=10)
+                recovery_history = session_manager.get_recovery_history(limit=10)
+                
+                # セッション分離詳細情報を構築
+                session_isolation_details = {
+                    "session_integrity": {
+                        "status": "✅ 正常" if session_info["is_consistent"] else "❌ 不整合",
+                        "session_id_match": session_info["session_id"] == session_info["current_session_id"],
+                        "original_session_id": session_info["session_id"],
+                        "current_session_id": session_info["current_session_id"],
+                        "stored_session_id": session_info["stored_session_id"],
+                        "user_id": session_info["user_id"],
+                        "session_age_minutes": round(session_info["session_age_seconds"] / 60, 2),
+                        "last_validated": session_info["last_validated"]
+                    },
+                    "validation_metrics": {
+                        "total_validations": session_info["validation_count"],
+                        "total_recoveries": session_info["recovery_count"],
+                        "validation_history_size": session_info["validation_history_count"],
+                        "recovery_history_size": session_info["recovery_history_count"],
+                        "success_rate": round((session_info["validation_count"] - session_info["recovery_count"]) / max(session_info["validation_count"], 1) * 100, 2) if session_info["validation_count"] > 0 else 100
+                    },
+                    "component_isolation": isolation_status["component_isolation"],
+                    "data_integrity": isolation_status["data_integrity"]
+                }
+                
+                # 拡張されたデバッグ情報
+                enhanced_debug_info = {
+                    "session_isolation_details": session_isolation_details,
+                    "isolation_status": isolation_status,
+                    "session_manager_info": {
+                        "session_id": session_info["session_id"],
+                        "current_session_id": session_info["current_session_id"],
+                        "user_id": session_info["user_id"],
+                        "is_consistent": session_info["is_consistent"],
+                        "validation_count": session_info["validation_count"],
+                        "recovery_count": session_info["recovery_count"],
+                        "session_age_seconds": session_info["session_age_seconds"],
+                        "created_at": session_info["created_at"],
+                        "last_validated": session_info["last_validated"]
+                    },
+                    "chat_state": {
+                        "affection": st.session_state.chat['affection'],
+                        "theme": st.session_state.chat['scene_params']['theme'],
+                        "messages_count": len(st.session_state.chat['messages']),
+                        "ura_mode": st.session_state.chat.get('ura_mode', False),
+                        "limiter_state_present": 'limiter_state' in st.session_state.chat,
+                        "scene_change_pending": st.session_state.chat.get('scene_change_pending')
+                    },
+                    "memory_state": {
+                        "cache_size": len(st.session_state.memory_manager.important_words_cache),
+                        "special_memories": len(st.session_state.memory_manager.special_memories),
+                        "memory_manager_type": type(st.session_state.memory_manager).__name__,
+                        "memory_manager_id": id(st.session_state.memory_manager)
+                    },
+                    "system_state": {
+                        "session_keys": list(st.session_state.keys()),
+                        "session_keys_count": len(st.session_state.keys()),
+                        "notifications_pending": {
+                            "affection": len(st.session_state.affection_notifications),
+                            "memory": len(st.session_state.memory_notifications)
+                        },
+                        "streamlit_session_id": st.session_state.get('_session_id', 'unknown')
+                    }
+                }
+                
+                # タブ形式でデバッグ情報を整理（拡張版）
+                debug_tab1, debug_tab2, debug_tab3, debug_tab4, debug_tab5 = st.tabs([
+                    "🔍 セッション分離", "📊 基本情報", "✅ 検証履歴", "🔧 復旧履歴", "⚙️ システム詳細"
+                ])
+                
+                with debug_tab1:
+                    st.markdown("### 🔒 セッション分離状態")
+                    
+                    # 手動検証ボタン
+                    col_btn1, col_btn2, col_btn3 = st.columns(3)
+                    with col_btn1:
+                        if st.button("🔍 手動検証実行", help="セッション整合性を手動で検証します"):
+                            validation_result = validate_session_state()
+                            if validation_result:
+                                st.success("✅ セッション検証成功")
+                            else:
+                                st.error("❌ セッション検証失敗")
+                            st.rerun()
+                    
+                    with col_btn2:
+                        if st.button("📋 詳細検証実行", help="詳細なセッション検証を実行します"):
+                            detailed_issues = perform_detailed_session_validation(session_manager)
+                            if not detailed_issues:
+                                st.success("✅ 詳細検証: 問題なし")
+                            else:
+                                st.warning(f"⚠️ 詳細検証: {len(detailed_issues)}件の問題を検出")
+                                for issue in detailed_issues:
+                                    severity_icon = "🔴" if issue['severity'] == 'critical' else "🟡"
+                                    st.write(f"{severity_icon} **{issue['type']}**: {issue['description']}")
+                    
+                    with col_btn3:
+                        if st.button("🔄 強制復旧実行", help="セッション状態を強制的に復旧します"):
+                            session_manager.recover_session()
+                            st.info("🔄 セッション復旧を実行しました")
+                            st.rerun()
+                    
+                    st.markdown("---")
+                    
+                    # セッション整合性ステータス
+                    col1, col2 = st.columns(2)
+                    with col1:
+                        st.metric(
+                            "セッション整合性",
+                            session_isolation_details["session_integrity"]["status"],
+                            delta=None
+                        )
+                        st.metric(
+                            "検証成功率",
+                            f"{session_isolation_details['validation_metrics']['success_rate']}%",
+                            delta=None
+                        )
+                    
+                    with col2:
+                        st.metric(
+                            "総検証回数",
+                            session_isolation_details["validation_metrics"]["total_validations"],
+                            delta=None
+                        )
+                        st.metric(
+                            "復旧実行回数",
+                            session_isolation_details["validation_metrics"]["total_recoveries"],
+                            delta=None
+                        )
+                    
+                    # コンポーネント分離状態
+                    st.markdown("#### 🧩 コンポーネント分離状態")
+                    isolation_data = session_isolation_details["component_isolation"]
+                    
+                    for component, is_isolated in isolation_data.items():
+                        status_icon = "✅" if is_isolated else "❌"
+                        component_name = {
+                            "chat_isolated": "チャット機能",
+                            "memory_isolated": "メモリ管理",
+                            "notifications_isolated": "通知システム",
+                            "rate_limit_isolated": "レート制限"
+                        }.get(component, component)
+                        
+                        st.write(f"{status_icon} **{component_name}**: {'分離済み' if is_isolated else '未分離'}")
+                    
+                    # データ整合性
+                    st.markdown("#### 📋 データ整合性")
+                    integrity_data = session_isolation_details["data_integrity"]
+                    
+                    col1, col2 = st.columns(2)
+                    with col1:
+                        st.metric("チャットメッセージ数", integrity_data["chat_messages_count"])
+                        st.metric("メモリキャッシュサイズ", integrity_data["memory_cache_size"])
+                    
+                    with col2:
+                        st.metric("特別な記憶数", integrity_data["special_memories_count"])
+                        pending_total = sum(integrity_data["pending_notifications"].values())
+                        st.metric("保留中通知数", pending_total)
+                    
+                    # セッションID詳細
+                    st.markdown("#### 🆔 セッションID詳細")
+                    session_id_info = session_isolation_details["session_integrity"]
+                    
+                    st.code(f"""
+セッション整合性: {session_id_info['status']}
+オリジナルID: {session_id_info['original_session_id']}
+現在のID: {session_id_info['current_session_id']}
+保存されたID: {session_id_info['stored_session_id']}
+ユーザーID: {session_id_info['user_id']}
+セッション継続時間: {session_id_info['session_age_minutes']} 分
+最終検証時刻: {session_id_info['last_validated'][:19]}
+                    """)
+                
+                with debug_tab2:
+                    st.markdown("### 📊 基本セッション情報")
+                    st.json({
+                        "session_manager": enhanced_debug_info["session_manager_info"],
+                        "chat_state": enhanced_debug_info["chat_state"],
+                        "memory_state": enhanced_debug_info["memory_state"]
+                    })
+                
+                with debug_tab3:
+                    st.markdown("### ✅ セッション検証履歴")
+                    if validation_history:
+                        st.write(f"**最新の検証履歴（最大10件）:** 総検証回数 {session_info['validation_count']} 回")
+                        
+                        # 検証履歴のサマリー
+                        recent_validations = validation_history[-5:] if len(validation_history) >= 5 else validation_history
+                        success_count = sum(1 for v in recent_validations if v['is_consistent'])
+                        
+                        col1, col2, col3 = st.columns(3)
+                        with col1:
+                            st.metric("直近5回の成功率", f"{success_count}/{len(recent_validations)}")
+                        with col2:
+                            st.metric("最新検証結果", "✅ 成功" if validation_history[-1]['is_consistent'] else "❌ 失敗")
+                        with col3:
+                            st.metric("検証間隔", f"約{round((datetime.now() - datetime.fromisoformat(validation_history[-1]['timestamp'].replace('Z', '+00:00').replace('+00:00', ''))).total_seconds() / 60, 1)}分前")
+                        
+                        # 詳細な検証履歴
+                        for i, record in enumerate(reversed(validation_history)):
+                            status_icon = "✅" if record['is_consistent'] else "❌"
+                            timestamp = record['timestamp'][:19].replace('T', ' ')
+                            
+                            with st.expander(f"{status_icon} 検証 #{record['validation_count']} - {timestamp}", expanded=(i==0)):
+                                col1, col2 = st.columns(2)
+                                
+                                with col1:
+                                    st.write("**基本情報:**")
+                                    st.write(f"- 検証時刻: {timestamp}")
+                                    st.write(f"- 検証回数: #{record['validation_count']}")
+                                    st.write(f"- 結果: {'✅ 整合性OK' if record['is_consistent'] else '❌ 不整合検出'}")
+                                    st.write(f"- ユーザーID: {record['user_id']}")
+                                
+                                with col2:
+                                    st.write("**セッションID情報:**")
+                                    st.write(f"- オリジナル: {record['original_session_id']}")
+                                    st.write(f"- 現在: {record['current_session_id']}")
+                                    st.write(f"- 保存済み: {record['stored_session_id']}")
+                                    st.write(f"- セッションキー数: {record['session_keys_count']}")
+                    else:
+                        st.info("検証履歴がありません")
+                
+                with debug_tab4:
+                    st.markdown("### 🔧 セッション復旧履歴")
+                    if recovery_history:
+                        st.write(f"**復旧履歴:** 総復旧回数 {session_info['recovery_count']} 回")
+                        
+                        # 復旧履歴のサマリー
+                        if recovery_history:
+                            last_recovery = recovery_history[-1]
+                            time_since_recovery = (datetime.now() - datetime.fromisoformat(last_recovery['timestamp'].replace('Z', '+00:00').replace('+00:00', ''))).total_seconds() / 60
+                            
+                            col1, col2 = st.columns(2)
+                            with col1:
+                                st.metric("最新復旧", f"約{round(time_since_recovery, 1)}分前")
+                            with col2:
+                                st.metric("復旧タイプ", last_recovery.get('recovery_type', 'unknown'))
+                        
+                        # 詳細な復旧履歴
+                        for record in reversed(recovery_history):
+                            timestamp = record['timestamp'][:19].replace('T', ' ')
+                            recovery_type = record.get('recovery_type', 'unknown')
+                            
+                            with st.expander(f"🔧 復旧 #{record['recovery_count']} - {timestamp} ({recovery_type})", expanded=True):
+                                col1, col2 = st.columns(2)
+                                
+                                with col1:
+                                    st.write("**復旧情報:**")
+                                    st.write(f"- 復旧時刻: {timestamp}")
+                                    st.write(f"- 復旧回数: #{record['recovery_count']}")
+                                    st.write(f"- 復旧タイプ: {recovery_type}")
+                                    st.write(f"- ユーザーID: {record['user_id']}")
+                                
+                                with col2:
+                                    st.write("**セッションID変更:**")
+                                    st.write(f"- 変更前: {record['old_session_id']}")
+                                    st.write(f"- 変更後: {record['new_session_id']}")
+                                    st.write(f"- セッションキー数: {record['session_keys_count']}")
+                                    st.write(f"- 復旧時検証回数: {record['validation_count_at_recovery']}")
+                    else:
+                        st.success("復旧履歴がありません（正常な状態です）")
+                
+                with debug_tab5:
+                    st.markdown("### ⚙️ システム詳細情報")
+                    st.json(enhanced_debug_info["system_state"])
+                    
+                    # 追加のシステム情報
+                    st.markdown("#### 🔧 技術詳細")
+                    st.code(f"""
+Python オブジェクトID:
+- st.session_state: {id(st.session_state)}
+- SessionManager: {id(session_manager)}
+- MemoryManager: {enhanced_debug_info['memory_state']['memory_manager_id']}
+
+環境変数:
+- DEBUG_MODE: {os.getenv('DEBUG_MODE', 'false')}
+- FORCE_SESSION_RESET: {os.getenv('FORCE_SESSION_RESET', 'false')}
+
+Streamlit情報:
+- セッション状態キー数: {len(st.session_state.keys())}
+- 内部セッションID: {st.session_state.get('_session_id', 'unknown')}
+                    """)
 
     # --- メインコンテンツ ---
     st.title("💬 麻理チャット")
@@ -519,6 +1038,11 @@ def render_chat_tab(managers):
     # メッセージ処理ロジック
     def process_chat_message(message: str):
         try:
+            # セッション検証を処理開始時に実行
+            if not validate_session_state():
+                logger.error("Session validation failed at message processing start")
+                return "（申し訳ありません。システムに問題が発生しました。ページを再読み込みしてください。）"
+            
             # レート制限チェック
             if 'limiter_state' not in st.session_state.chat:
                 st.session_state.chat['limiter_state'] = managers['rate_limiter'].create_limiter_state()
@@ -605,7 +1129,7 @@ def render_chat_tab(managers):
             st.error(f"⚠️ メッセージは{MAX_INPUT_LENGTH}文字以内で入力してください。")
         else:
             # 応答を生成（履歴追加前に実行）
-            with st.spinner("考え中..."):
+            with cute_thinking_spinner():
                 response = process_chat_message(user_input)
             
             # 応答生成後に両方のメッセージを履歴に追加
