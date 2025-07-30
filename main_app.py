@@ -195,9 +195,11 @@ def initialize_session_state(managers):
         # 復旧に失敗した場合は強制リセット
         force_reset = True
     
-    # 共通のユーザーIDを生成
+    # 共通のユーザーIDを生成（各ブラウザセッションごとに独立）
     if 'user_id' not in st.session_state or force_reset:
         # 手紙機能はUUID形式のユーザーIDを想定しているため、それに合わせる
+        # 注意: このユーザーIDは各ブラウザセッションごとに独立しており、
+        # 他のユーザーのセッションとは完全に分離されています
         st.session_state.user_id = managers["user_manager"].generate_user_id()
         
         # SessionManagerにユーザーIDを設定
@@ -226,7 +228,7 @@ def initialize_session_state(managers):
     # チャット機能用のセッション初期化
     if 'chat_initialized' not in st.session_state or force_reset:
         st.session_state.chat = {
-            "messages": [{"role": "assistant", "content": "何の用？遊びに来たの？", "is_initial": True}],
+            "messages": [{"role": "assistant", "content": "[HIDDEN:（本当は嬉しいけど...素直になれない）]何の用？遊びに来たの？", "is_initial": True}],
             "affection": 30,
             "scene_params": {"theme": "default"},
             "limiter_state": managers["rate_limiter"].create_limiter_state(),
@@ -242,6 +244,14 @@ def initialize_session_state(managers):
         
         # セッション単位でMemoryManagerを作成
         st.session_state.memory_manager = MemoryManager(history_threshold=10)
+        
+        # Streamlitの内部チャット状態をクリア
+        if 'messages' in st.session_state:
+            del st.session_state.messages
+        if 'last_sent_message' in st.session_state:
+            del st.session_state.last_sent_message
+        if 'user_message_input' in st.session_state:
+            del st.session_state.user_message_input
         
         if force_reset:
             logger.info("Session force reset - all data cleared")
@@ -630,14 +640,14 @@ def render_chat_tab(managers):
             
             # 現在のモードを表示
             current_mode = st.session_state.chat.get('ura_mode', False)
-            mode_text = "🔓 本音モード" if current_mode else "🔒 通常モード"
+            mode_text = "🔓 セーフティ解除" if current_mode else "🔒 セーフティ有効"
             st.markdown(f"**対話モード**: {mode_text}")
 
         with st.expander("⚙️ 設定"):
             # ... (エクスポートやリセットボタンのロジックは省略) ...
-            if st.button("🔄 会話をリセット", type="secondary", use_container_width=True):
+            if st.button("🔄 会話をリセット", type="secondary", use_container_width=True, help="あなたの会話履歴のみをリセットします（他のユーザーには影響しません）"):
                 # チャット履歴を完全にリセット
-                st.session_state.chat['messages'] = [{"role": "assistant", "content": "何の用？遊びに来たの？", "is_initial": True}]
+                st.session_state.chat['messages'] = [{"role": "assistant", "content": "[HIDDEN:（本当は嬉しいけど...素直になれない）]何の用？遊びに来たの？", "is_initial": True}]
                 st.session_state.chat['affection'] = 30
                 st.session_state.chat['scene_params'] = {"theme": "default"}
                 st.session_state.chat['limiter_state'] = managers['rate_limiter'].create_limiter_state()
@@ -645,6 +655,16 @@ def render_chat_tab(managers):
                 
                 # メモリマネージャーをクリア
                 st.session_state.memory_manager.clear_memory()
+                
+                # Streamlitの内部チャット状態もクリア
+                if 'messages' in st.session_state:
+                    del st.session_state.messages
+                if 'last_sent_message' in st.session_state:
+                    del st.session_state.last_sent_message
+                if 'user_message_input' in st.session_state:
+                    del st.session_state.user_message_input
+                if 'message_flip_states' in st.session_state:
+                    del st.session_state.message_flip_states
                 
                 # 新しいユーザーIDを生成（完全リセット）
                 st.session_state.user_id = managers["user_manager"].generate_user_id()
@@ -926,6 +946,15 @@ def render_chat_tab(managers):
                     st.markdown("### ⚙️ システム詳細情報")
                     st.json(enhanced_debug_info["system_state"])
                     
+                    
+                    # マスク機能の統計（本格実装）
+                    st.markdown("---")
+                    st.markdown("### 🎭 マスク機能統計")
+                    flip_states = st.session_state.get('message_flip_states', {})
+                    st.markdown(f"**フリップ状態数**: {len(flip_states)}")
+                    if flip_states:
+                        st.json(flip_states)
+                    
                     # 追加のシステム情報
                     st.markdown("#### 🔧 技術詳細")
                     st.code(f"""
@@ -1010,16 +1039,16 @@ Streamlit情報:
     
     with col_button:
         current_mode = st.session_state.chat.get('ura_mode', False)
-        button_text = "🔓 本音" if not current_mode else "🔒 通常"
+        button_text = "🔓 セーフティ解除" if not current_mode else "🔒 セーフティ有効"
         button_type = "secondary" if not current_mode else "primary"
         
-        if st.button(button_text, type=button_type, help="麻理の本音が聞けるモードに切り替えます", use_container_width=True):
+        if st.button(button_text, type=button_type, help="麻理のセーフティ機能を解除して、より大胆な表現を有効にします", use_container_width=True):
             st.session_state.chat['ura_mode'] = not current_mode
             new_mode = st.session_state.chat['ura_mode']
             if new_mode:
-                st.success("🔓 本音モードに切り替えました！")
+                st.success("🔓 セーフティ解除モードに切り替えました！")
             else:
-                st.info("🔒 通常モードに戻しました。")
+                st.info("🔒 セーフティ有効モードに戻しました。")
             st.rerun()
     
     with col_chat:
@@ -1105,27 +1134,49 @@ Streamlit情報:
             )
             memory_summary = st.session_state.memory_manager.get_memory_summary()
             
-            # 隠された真実を生成するかどうかを判定
-            message_count = len(st.session_state.chat['messages'])
-            should_generate_hidden = managers['dialogue_generator'].should_generate_hidden_content(affection, message_count)
+            # 対話生成（隠された真実機能統合済み）
+            response = managers['dialogue_generator'].generate_dialogue(
+                history, message, affection, stage_name, st.session_state.chat['scene_params'], instruction, memory_summary, st.session_state.chat['ura_mode']
+            )
             
-            # 応答生成（隠された真実付きまたは通常）
-            if should_generate_hidden:
-                response = managers['dialogue_generator'].generate_dialogue_with_hidden_content(
-                    history, message, affection, stage_name, st.session_state.chat['scene_params'], instruction, memory_summary, st.session_state.chat['ura_mode']
-                )
-            else:
-                response = managers['dialogue_generator'].generate_dialogue(
-                    history, message, affection, stage_name, st.session_state.chat['scene_params'], instruction, memory_summary, st.session_state.chat['ura_mode']
-                )
+            # デバッグ: AI応答の形式をチェック
+            if response:
+                logger.info(f"🤖 AI応答: '{response[:100]}...'")
+                if '[HIDDEN:' in response:
+                    logger.info("✅ HIDDEN形式を検出")
+                else:
+                    logger.warning("⚠️ HIDDEN形式が見つからない - フォールバック処理を実行")
+                    # HIDDEN形式でない場合は、強制的にHIDDEN形式に変換
+                    response = f"[HIDDEN:（本当の気持ちは...）]{response}"
+                    logger.info(f"🔧 フォールバック後: '{response[:100]}...'")
             
-            return response if response else "…なんて言えばいいか分からない。"
+            return response if response else "[HIDDEN:（言葉が出てこない...）]…なんて言えばいいか分からない。"
         except Exception as e:
             logger.error(f"チャットメッセージ処理エラー: {e}", exc_info=True)
             return "（ごめん、システムの調子が悪いみたいだ。）"
 
-    # ユーザー入力処理
-    if user_input := st.chat_input("麻理に話しかける..."):
+    # ユーザー入力処理（通常の入力フィールドを使用して二重表示を防止）
+    with st.container():
+        col_input, col_send = st.columns([0.85, 0.15])
+        
+        with col_input:
+            user_input = st.text_input(
+                "メッセージ", 
+                placeholder="麻理に話しかける...",
+                key="user_message_input",
+                label_visibility="collapsed"
+            )
+        
+        with col_send:
+            send_button = st.button("送信", type="primary", use_container_width=True)
+    
+    # 送信ボタンでメッセージ送信（Enterキー送信は無効化して重複を防止）
+    if send_button and user_input and user_input.strip():
+        # 重複送信を防止
+        if st.session_state.get("last_sent_message") == user_input:
+            return
+        st.session_state.last_sent_message = user_input
+        
         if len(user_input) > MAX_INPUT_LENGTH:
             st.error(f"⚠️ メッセージは{MAX_INPUT_LENGTH}文字以内で入力してください。")
         else:
@@ -1139,6 +1190,10 @@ Streamlit情報:
             
             managers['chat_interface'].add_message("user", user_input, st.session_state.chat['messages'], user_message_id)
             managers['chat_interface'].add_message("assistant", response, st.session_state.chat['messages'], assistant_message_id)
+            
+            # 入力フィールドをクリア（次回の再実行時に反映）
+            if 'user_message_input' in st.session_state:
+                del st.session_state.user_message_input
             
             # シーン変更があった場合はフラグをクリア
             if st.session_state.get('scene_change_flag', False):

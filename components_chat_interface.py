@@ -77,6 +77,11 @@ class ChatInterface:
             # 隠された真実を検出
             has_hidden_content, visible_content, hidden_content = self._detect_hidden_content(content)
             
+            # 隠された真実が検出されない場合のフォールバック処理
+            if not has_hidden_content:
+                logger.warning(f"隠された真実が検出されませんでした: '{content[:50]}...'")
+                # AIが[HIDDEN:...]形式で応答していない場合は通常表示
+            
             # セッション状態でフリップ状態を管理
             if 'message_flip_states' not in st.session_state:
                 st.session_state.message_flip_states = {}
@@ -111,6 +116,9 @@ class ChatInterface:
             (隠された内容があるか, 表示用内容, 隠された内容)
         """
         try:
+            # デバッグ用ログ
+            logger.info(f"🔍 隠された内容検出中: '{content[:50]}...'")
+            
             # 隠された真実のマーカーを検索
             # 形式: [HIDDEN:隠された内容]表示される内容
             hidden_pattern = r'\[HIDDEN:(.*?)\](.*)'
@@ -119,9 +127,20 @@ class ChatInterface:
             if match:
                 hidden_content = match.group(1).strip()
                 visible_content = match.group(2).strip()
+                
+                # 複数HIDDENをチェック
+                additional_hidden = re.findall(r'\[HIDDEN:(.*?)\]', visible_content)
+                if additional_hidden:
+                    logger.warning(f"⚠️ 複数HIDDEN検出: {len(additional_hidden) + 1}個のHIDDENが見つかりました")
+                    # 2番目以降のHIDDENを表示内容から除去
+                    visible_content = re.sub(r'\[HIDDEN:.*?\]', '', visible_content).strip()
+                    logger.info(f"🔧 複数HIDDEN除去後: 表示='{visible_content}'")
+                
+                logger.info(f"🎭 隠された真実を検出: 表示='{visible_content}', 隠し='{hidden_content}'")
                 return True, visible_content, hidden_content
             
             # マーカーがない場合は通常のメッセージ
+            logger.info(f"📝 通常メッセージ: '{content[:30]}...'")
             return False, content, ""
             
         except Exception as e:
@@ -141,6 +160,7 @@ class ChatInterface:
             is_initial: 初期メッセージかどうか
         """
         try:
+            logger.info(f"🎭 マスクアイコン付きメッセージを表示: ID={message_id}, フリップ={is_flipped}")
             # フリップアニメーション用CSS
             flip_css = f"""
             <style>
@@ -164,11 +184,12 @@ class ChatInterface:
                 position: absolute;
                 width: 100%;
                 backface-visibility: hidden;
-                padding: 15px;
+                padding: 15px 45px 15px 15px;
                 border-radius: 12px;
                 box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
                 font-family: var(--mari-font);
                 line-height: 1.7;
+                min-height: 50px;
             }}
             
             .message-front-{message_id} {{
@@ -188,16 +209,17 @@ class ChatInterface:
             
             .mask-icon-{message_id} {{
                 position: absolute;
-                bottom: 8px;
-                right: 8px;
-                font-size: 18px;
+                bottom: 12px;
+                right: 12px;
+                font-size: 20px;
                 cursor: pointer;
-                padding: 4px;
+                padding: 6px;
                 border-radius: 50%;
-                background: rgba(255, 255, 255, 0.8);
+                background: rgba(255, 255, 255, 0.9);
                 transition: all 0.3s ease;
                 z-index: 10;
                 user-select: none;
+                box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
             }}
             
             .mask-icon-{message_id}:hover {{
@@ -227,90 +249,44 @@ class ChatInterface:
             </style>
             """
             
-            # メッセージHTML
+            # 現在表示するコンテンツを決定
             current_content = hidden_content if is_flipped else visible_content
             initial_class = "mari-initial-message" if is_initial else ""
             
-            message_html = f"""
-            <div class="message-container-{message_id}">
-                <div class="message-flip-{message_id}">
-                    <div class="message-side-{message_id} message-front-{message_id}">
-                        <div class="{initial_class}">{visible_content}</div>
-                    </div>
-                    <div class="message-side-{message_id} message-back-{message_id}">
-                        <div class="{initial_class}">{hidden_content}</div>
-                    </div>
+            # メッセージとボタンを横並びで表示
+            col_message, col_button = st.columns([0.9, 0.1])
+            
+            with col_message:
+                # 背景色を動的に設定
+                bg_color = "#FFF8E1" if is_flipped else "#F5F5F5"
+                message_style = f"""
+                <div style="
+                    padding: 15px; 
+                    background: {bg_color}; 
+                    border-radius: 12px; 
+                    border: 1px solid rgba(0,0,0,0.1); 
+                    min-height: 50px;
+                    font-family: var(--mari-font);
+                    line-height: 1.7;
+                ">
+                    <div class="{initial_class}">{current_content}</div>
                 </div>
-                <div class="mask-icon-{message_id} {'tutorial-pulse-' + message_id if self._is_tutorial_message(message_id) else ''}" 
-                     onclick="toggleFlip_{message_id}()">
-                    🎭
-                </div>
-            </div>
-            """
+                """
+                st.markdown(message_style, unsafe_allow_html=True)
             
-            # JavaScript for flip functionality
-            flip_js = f"""
-            <script>
-            function toggleFlip_{message_id}() {{
-                // Streamlitのセッション状態を更新するためのフォーム送信
-                const form = document.createElement('form');
-                form.method = 'POST';
-                form.style.display = 'none';
+            with col_button:
+                # マスクボタン
+                button_label = "🔄" if is_flipped else "🎭"
+                button_help = "元に戻す" if is_flipped else "本音を見る"
                 
-                const input = document.createElement('input');
-                input.type = 'hidden';
-                input.name = 'flip_message_id';
-                input.value = '{message_id}';
-                
-                form.appendChild(input);
-                document.body.appendChild(form);
-                
-                // Streamlitのセッション状態更新をトリガー
-                window.parent.postMessage({{
-                    type: 'streamlit:setComponentValue',
-                    value: {{
-                        action: 'flip_message',
-                        message_id: '{message_id}',
-                        current_state: {str(is_flipped).lower()}
-                    }}
-                }}, '*');
-                
-                // 音効果を再生
-                playFlipSound();
-            }}
+                if st.button(button_label, key=f"flip_btn_{message_id}", help=button_help):
+                    st.session_state.message_flip_states[message_id] = not is_flipped
+                    logger.info(f"🔄 フリップ状態変更: {message_id} -> {not is_flipped}")
+                    st.rerun()
             
-            function playFlipSound() {{
-                try {{
-                    const audioContext = new (window.AudioContext || window.webkitAudioContext)();
-                    const oscillator = audioContext.createOscillator();
-                    const gainNode = audioContext.createGain();
-                    
-                    oscillator.frequency.setValueAtTime(800, audioContext.currentTime);
-                    oscillator.frequency.exponentialRampToValueAtTime(400, audioContext.currentTime + 0.1);
-                    oscillator.type = 'sine';
-                    
-                    gainNode.gain.setValueAtTime(0.1, audioContext.currentTime);
-                    gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.2);
-                    
-                    oscillator.connect(gainNode);
-                    gainNode.connect(audioContext.destination);
-                    
-                    oscillator.start(audioContext.currentTime);
-                    oscillator.stop(audioContext.currentTime + 0.2);
-                }} catch (error) {{
-                    console.log("音声再生はサポートされていません:", error);
-                }}
-            }}
-            </script>
-            """
-            
-            # CSSとHTMLを表示
-            st.markdown(flip_css + message_html + flip_js, unsafe_allow_html=True)
-            
-            # フリップ状態の変更をチェック
-            if st.button("", key=f"flip_btn_{message_id}", help="クリックして本音を見る", type="secondary"):
-                st.session_state.message_flip_states[message_id] = not is_flipped
-                st.rerun()
+            # マスク機能の状態表示（開発用）
+            if st.session_state.get("debug_mode", False):
+                st.caption(f"🎭 Mask: ID={message_id}, Hidden={len(hidden_content)>0}, Flipped={is_flipped}")
                 
         except Exception as e:
             logger.error(f"フリップアニメーション表示エラー: {e}")
