@@ -601,23 +601,14 @@ def cute_thinking_spinner():
         # アニメーション終了
         placeholder.empty()
 
-def render_custom_chat_history(messages):
-    """カスタムチャット履歴表示エリア"""
+def render_custom_chat_history(messages, chat_interface):
+    """カスタムチャット履歴表示エリア（マスク機能付き）"""
     if not messages:
         st.info("まだメッセージがありません。下のチャット欄で麻理に話しかけてみてください。")
         return
     
-    # Streamlitの標準チャット表示を使用（より安全）
-    for message in messages:
-        role = message.get('role', 'assistant')
-        content = message.get('content', '')
-        is_initial = message.get('is_initial', False)
-        
-        with st.chat_message(role):
-            if is_initial:
-                st.markdown(f"**{content}**")
-            else:
-                st.markdown(content)
+    # 拡張されたチャットインターフェースを使用（マスク機能付き）
+    chat_interface.render_chat_history(messages)
 
 
 # === チャットタブの描画関数 ===
@@ -1032,8 +1023,8 @@ Streamlit情報:
             st.rerun()
     
     with col_chat:
-        # カスタムチャット履歴表示エリア
-        render_custom_chat_history(st.session_state.chat['messages'])
+        # カスタムチャット履歴表示エリア（マスク機能付き）
+        render_custom_chat_history(st.session_state.chat['messages'], managers['chat_interface'])
 
     # メッセージ処理ロジック
     def process_chat_message(message: str):
@@ -1114,10 +1105,20 @@ Streamlit情報:
             )
             memory_summary = st.session_state.memory_manager.get_memory_summary()
             
-            # 応答生成
-            response = managers['dialogue_generator'].generate_dialogue(
-                history, message, affection, stage_name, st.session_state.chat['scene_params'], instruction, memory_summary, st.session_state.chat['ura_mode']
-            )
+            # 隠された真実を生成するかどうかを判定
+            message_count = len(st.session_state.chat['messages'])
+            should_generate_hidden = managers['dialogue_generator'].should_generate_hidden_content(affection, message_count)
+            
+            # 応答生成（隠された真実付きまたは通常）
+            if should_generate_hidden:
+                response = managers['dialogue_generator'].generate_dialogue_with_hidden_content(
+                    history, message, affection, stage_name, st.session_state.chat['scene_params'], instruction, memory_summary, st.session_state.chat['ura_mode']
+                )
+            else:
+                response = managers['dialogue_generator'].generate_dialogue(
+                    history, message, affection, stage_name, st.session_state.chat['scene_params'], instruction, memory_summary, st.session_state.chat['ura_mode']
+                )
+            
             return response if response else "…なんて言えばいいか分からない。"
         except Exception as e:
             logger.error(f"チャットメッセージ処理エラー: {e}", exc_info=True)
@@ -1132,9 +1133,12 @@ Streamlit情報:
             with cute_thinking_spinner():
                 response = process_chat_message(user_input)
             
-            # 応答生成後に両方のメッセージを履歴に追加
-            st.session_state.chat['messages'].append({"role": "user", "content": user_input})
-            st.session_state.chat['messages'].append({"role": "assistant", "content": response})
+            # 応答生成後に両方のメッセージを履歴に追加（メッセージIDを含む）
+            user_message_id = f"user_{len(st.session_state.chat['messages'])}"
+            assistant_message_id = f"assistant_{len(st.session_state.chat['messages']) + 1}"
+            
+            managers['chat_interface'].add_message("user", user_input, st.session_state.chat['messages'], user_message_id)
+            managers['chat_interface'].add_message("assistant", response, st.session_state.chat['messages'], assistant_message_id)
             
             # シーン変更があった場合はフラグをクリア
             if st.session_state.get('scene_change_flag', False):

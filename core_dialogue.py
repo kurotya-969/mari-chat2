@@ -152,3 +152,89 @@ class DialogueGenerator:
 麻理の応答:'''
         
         return self.call_llm(self.get_system_prompt_mari(use_ura_mode), user_prompt)
+    
+    def generate_dialogue_with_hidden_content(self, history: List[Tuple[str, str]], message: str, 
+                                            affection: int, stage_name: str, scene_params: Dict[str, Any], 
+                                            instruction: Optional[str] = None, memory_summary: str = "", 
+                                            use_ura_mode: bool = False) -> str:
+        """隠された真実を含む対話を生成する"""
+        if not isinstance(history, list):
+            history = []
+        if not isinstance(scene_params, dict):
+            scene_params = {"theme": "default"}
+        if not isinstance(message, str):
+            message = ""
+        
+        # 履歴を効率的に処理（最新5件のみ）
+        recent_history = history[-5:] if len(history) > 5 else history
+        history_parts = []
+        for item in recent_history:
+            if isinstance(item, (list, tuple)) and len(item) >= 2:
+                user_msg = str(item[0]) if item[0] is not None else ""
+                bot_msg = str(item[1]) if item[1] is not None else ""
+                if user_msg or bot_msg:  # 空でない場合のみ追加
+                    history_parts.append(f"ユーザー: {user_msg}\n麻理: {bot_msg}")
+        
+        history_text = "\n".join(history_parts)
+        
+        current_theme = scene_params.get("theme", "default")
+        
+        # メモリサマリーを含めたプロンプト構築
+        memory_section = f"\n# 過去の記憶\n{memory_summary}\n" if memory_summary else ""
+        
+        # 隠された真実生成用の特別なシステムプロンプト
+        hidden_system_prompt = self.get_system_prompt_mari(use_ura_mode) + """
+
+【重要】隠された真実機能について：
+あなたは表面的な発言と内心の本音を分けて表現できます。
+以下の形式で応答してください：
+
+[HIDDEN:（内心の本音や真の感情）]表面的な発言
+
+例：
+[HIDDEN:（本当は嬉しいけど素直になれない）]何の用？あんたが来るなんて珍しいじゃない。
+
+隠された内容は：
+- 麻理の本当の気持ちや感情
+- 表面的には言えない優しさや愛情
+- ツンデレの「デレ」部分
+- 過去のトラウマからくる不安や恐れ
+- ユーザーへの本当の想い
+
+必ず[HIDDEN:...]の形式を使用し、表面的な発言と内心を分けて表現してください。
+"""
+        
+        user_prompt = f'''# 現在の状況
+- 現在地: {current_theme}
+- 好感度: {affection} ({stage_name}){memory_section}
+# 最近の会話履歴
+{history_text}
+---
+# 指示
+{f"【特別指示】{instruction}" if instruction else f"ユーザーの発言「{message}」に応答してください。"}
+
+麻理の応答（隠された真実付き）:'''
+        
+        return self.call_llm(hidden_system_prompt, user_prompt)
+    
+    def should_generate_hidden_content(self, affection: int, message_count: int) -> bool:
+        """隠された真実を生成すべきかどうかを判定する"""
+        # 好感度が40以上で、メッセージ数が3以上の場合に隠された真実を生成
+        # ランダム要素も加えて、すべてのメッセージに隠された真実があるわけではないようにする
+        import random
+        
+        if affection < 40:
+            return False
+        
+        if message_count < 3:
+            return False
+        
+        # 好感度に応じて確率を調整
+        if affection >= 80:
+            probability = 0.7  # 70%の確率
+        elif affection >= 60:
+            probability = 0.5  # 50%の確率
+        else:
+            probability = 0.3  # 30%の確率
+        
+        return random.random() < probability
