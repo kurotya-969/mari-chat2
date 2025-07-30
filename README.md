@@ -1,222 +1,489 @@
 ---
-title: 非同期手紙生成アプリ（麻理AI）
-emoji: 💌
+---
+title: 麻理チャット＆手紙生成 統合アプリ
+emoji: 🎭
 colorFrom: pink
 colorTo: purple
 sdk: streamlit
+sdk_version: 1.28.0
 app_file: main_app.py
 pinned: false
-license: mit
 ---
 
-# 非同期手紙生成アプリ（麻理AI）
+# 🎭 麻理チャット＆手紙生成 統合アプリ
 
-Hugging Face Spaces用の非同期手紙生成・チャットボットアプリケーションです。
+**麻理**という名前の感情豊かな少女型アンドロイドとの対話を楽しめる、高機能なAIチャットアプリケーションです。Together AIのAPIを使用し、リアルタイムチャットと非同期手紙生成の両方に対応しています。
 
-## 🚀 機能
+## ✨ 主要機能
 
-- **非同期手紙生成**: GroqとGemini APIを使用した手紙の自動生成
-- **バッチ処理**: 指定時刻での自動処理
-- **ストレージ管理**: JSONベースのデータ永続化
-- **ログ機能**: 詳細なログ出力
-- **Streamlitインターフェース**: ユーザーフレンドリーなWeb UI
+### 🎭 **マスク機能（隠された真実）**
+- 麻理の表面的な発言と内心の本音を切り替えて表示
+- 各メッセージの🎭アイコンをクリックして隠された真実を確認
+- ツンデレキャラクターの「デレ」部分を楽しめる
 
-## 📁 ファイル構成
+### 🔓 **セーフティ解除モード**
+- より大胆で直接的な表現を有効にするモード
+- 通常モードとセーフティ解除モードを切り替え可能
+- 環境変数で独自のプロンプトを設定可能
 
-### コア機能
-- `letter_app.py` - メインアプリケーション
-- `letter_config.py` - 設定管理
-- `letter_logger.py` - ログ機能
-- `letter_storage.py` - ストレージ管理
-- `letter_models.py` - データモデル
-- `letter_manager.py` - 手紙管理
+### ✉️ **非同期手紙生成**
+- 指定した時間に自動的に手紙を生成・配信
+- テーマ選択機能（日常、恋愛、励まし、感謝など）
+- バックグラウンド処理による効率的な生成
 
-### UI
-- `streamlit_app.py` - Streamlitメインアプリ
-- `streamlit_styles.css` - スタイル定義
+### 🎨 **高度なUI機能**
+- **動的背景システム**: 会話内容に応じて背景が自動変化
+- **好感度システム**: 関係性の進展を数値とステージで表示
+- **メモリ管理**: 長期記憶と重要な会話の自動保存
+- **セッション分離**: 複数ユーザー間での完全な独立性
 
-### 設定
-- `requirements.txt` - 依存関係
-- `.env` - 環境変数（開発用）
+### 🛡️ **堅牢なシステム**
+- **レート制限**: API使用量の適切な制御
+- **エラー回復**: 障害時の自動復旧機能
+- **セッション管理**: 強化されたセッション分離とデータ整合性
 
-## 🔧 環境変数
+## 🚀 セットアップ方法
 
-Hugging Face Spacesの設定画面で以下を設定してください：
+### Hugging Face Spacesでの実行（推奨）
 
-| 変数名 | 説明 | 必須 | デフォルト値 |
-|--------|------|------|-------------|
-| `GROQ_API_KEY` | Groq APIキー | ✅ | - |
-| `GEMINI_API_KEY` | Gemini APIキー | ✅ | - |
-| `DEBUG_MODE` | デバッグモード | ❌ | false |
-| `BATCH_SCHEDULE_HOURS` | バッチ処理時刻 | ❌ | 2,3,4 |
-| `MAX_DAILY_REQUESTS` | 最大日次リクエスト数 | ❌ | 1 |
-| `STORAGE_PATH` | ストレージパス | ❌ | /tmp/letters.json |
-| `BACKUP_PATH` | バックアップパス | ❌ | /tmp/backup |
-| `LOG_LEVEL` | ログレベル | ❌ | INFO |
-| `STREAMLIT_PORT` | Streamlitポート | ❌ | 7860 |
-| `SESSION_TIMEOUT` | セッションタイムアウト | ❌ | 3600 |
+1. **リポジトリのインポート**
+   - このリポジトリをHugging Face Spacesにインポート
+   - または[デモサイト](https://huggingface.co/spaces/your-space-name)で直接体験
 
-## 🚀 デプロイメント
+2. **Spaces設定**
+   - **SDK**: Streamlit
+   - **Python**: 3.10+
+   - **Hardware**: CPU Basic（2GB RAM）以上推奨
+   - **App File**: `spaces/main_app.py`
 
-### Hugging Face Spacesでのデプロイ
+3. **必須環境変数**
+   ```bash
+   TOGETHER_API_KEY=your_together_api_key_here
+   ```
 
-1. このディレクトリの全ファイルをHugging Face Spacesリポジトリにアップロード
-2. Space設定で以下を設定:
-   - **SDK**: "Streamlit"
-   - **Hardware**: CPU basic（推奨）
-3. 環境変数を設定（Settings > Variables and secrets）
-4. 自動的にアプリケーションが起動します
+4. **オプション環境変数**
+   ```bash
+   # 通常モード用カスタムプロンプト
+   SYSTEM_PROMPT_MARI=your_custom_prompt_here
+   
+   # セーフティ解除モード用プロンプト
+   SYSTEM_PROMPT_URA=your_ura_mode_prompt_here
+   
+   # デバッグモード有効化
+   DEBUG_MODE=true
+   
+   # 手紙生成設定
+   MAX_DAILY_REQUESTS=5
+   BATCH_SCHEDULE_HOURS=2,3,4
+   ```
 
-### ローカル実行
+#### APIキーの取得方法
 
-```bash
-# 依存関係をインストール
-pip install -r requirements.txt
+1. [Together AI](https://api.together.xyz/)にアクセス
+2. アカウント作成・ログイン
+3. APIキーを生成
+4. Hugging Face Spacesの「Settings」→「Variables and secrets」で設定
 
-# アプリケーションを起動
-streamlit run streamlit_app.py
+### ローカル環境での実行
+
+1. **リポジトリをクローン**
+   ```bash
+   git clone <repository-url>
+   cd mari-chat-app
+   ```
+
+2. **依存関係をインストール**
+   ```bash
+   pip install -r spaces/requirements.txt
+   ```
+
+3. **環境変数を設定**
+   `spaces/.env`ファイルを作成：
+   ```bash
+   # 必須設定
+   TOGETHER_API_KEY=your_together_api_key_here
+   
+   # オプション設定
+   SYSTEM_PROMPT_MARI=your_custom_prompt_here
+   SYSTEM_PROMPT_URA=your_ura_mode_prompt_here
+   DEBUG_MODE=true
+   
+   # 手紙機能設定
+   MAX_DAILY_REQUESTS=5
+   STORAGE_PATH=/tmp/letters.json
+   BATCH_SCHEDULE_HOURS=2,3,4
+   ASYNC_LETTER_ENABLED=true
+   ```
+
+4. **アプリケーションを実行**
+   ```bash
+   cd spaces
+   streamlit run main_app.py
+   ```
+
+5. **ブラウザでアクセス**
+   - 自動的にブラウザが開きます
+   - 手動の場合: `http://localhost:8501`
+
+### Dockerでの実行
+
+1. **Dockerイメージをビルド**
+   ```bash
+   docker build -t mari-chat-app .
+   ```
+
+2. **コンテナを実行**
+   ```bash
+   docker run -p 8501:8501 \
+     -e TOGETHER_API_KEY=your_api_key_here \
+     -e DEBUG_MODE=true \
+     mari-chat-app
+   ```
+
+3. **docker-composeを使用**
+   ```bash
+   docker-compose up -d
+   ```
+
+4. **環境変数ファイルを使用**
+   ```bash
+   docker run -p 8501:8501 --env-file spaces/.env mari-chat-app
+   ```
+
+## 📖 使用方法
+
+### 🎭 チャット機能
+
+#### 基本的な使い方
+1. **メッセージ入力**: 画面下部のテキスト入力欄にメッセージを入力
+2. **送信**: 送信ボタンをクリック
+3. **応答確認**: 麻理からの応答が表示されます
+4. **マスク機能**: 🎭アイコンをクリックして隠された真実を確認
+
+#### マスク機能の使い方
+- **🎭アイコン**: 麻理のメッセージに表示される仮面アイコン
+- **クリック**: アイコンをクリックすると表面的な発言と内心の本音が切り替わる
+- **背景色変化**: 隠された真実表示時は暖色系の背景に変化
+- **フリップアニメーション**: 0.4秒のY軸回転アニメーション
+
+#### セーフティ解除モード
+- **🔓ボタン**: サイドバーの「セーフティ解除」ボタンで切り替え
+- **表現変化**: より大胆で直接的な表現が有効になる
+- **隠された真実**: セーフティ解除時はより踏み込んだ感情表現
+
+### ✉️ 手紙機能
+
+#### 手紙のリクエスト
+1. **「手紙を受け取る」タブ**を選択
+2. **テーマ選択**: 日常、恋愛、励まし、感謝、お疲れ様、おやすみから選択
+3. **配信時間設定**: 希望する受け取り時間を指定
+4. **リクエスト送信**: 「手紙をリクエスト」ボタンをクリック
+
+#### 手紙の受け取り
+- **自動生成**: 指定時間にバックグラウンドで生成
+- **通知**: 新しい手紙が届くとチャットで通知
+- **履歴確認**: 過去の手紙履歴を確認可能
+
+### 🎛️ サイドバー機能
+
+#### ステータス表示
+- **好感度**: 現在の好感度（0-100）とプログレスバー
+- **関係性**: 警戒→困惑→信頼→親密の段階表示
+- **現在のシーン**: 背景シーンの名前
+- **対話モード**: セーフティ有効/解除の状態
+
+#### 設定機能
+- **🔄会話をリセット**: あなたの会話履歴のみをリセット
+- **🔓セーフティ解除**: より大胆な表現モードに切り替え
+- **🛠️デバッグ情報**: 詳細なシステム状態を表示（DEBUG_MODE=true時）
+
+### 🎨 高度な機能
+
+#### 自動シーン変更
+- **キーワード検出**: 「水族館」「カフェ」「神社」などの場所を話題にすると自動変化
+- **背景切り替え**: 会話内容に応じて背景画像が動的に変化
+- **雰囲気演出**: シーンに合わせた色調とエフェクト
+
+#### メモリ管理
+- **長期記憶**: 重要な会話内容を自動的に記憶
+- **要約機能**: 長い会話履歴を効率的に圧縮
+- **特別な記憶**: 印象的な出来事を特別に保存
+
+#### セッション分離
+- **ユーザー独立**: 各ユーザーの会話は完全に分離
+- **データ保護**: 他のユーザーの操作による影響なし
+- **整合性チェック**: セッション状態の自動検証と復旧
+
+## 🎨 シーン一覧
+
+| シーン名 | 説明 | 背景画像 | トリガーワード |
+|---------|------|----------|---------------|
+| `default` | デフォルトの部屋 | 温かみのある室内 | 部屋、家 |
+| `room_night` | 夜の部屋 | 夜景が見える室内 | 夜、寝る |
+| `beach_sunset` | 夕暮れのビーチ | 美しい夕日のビーチ | ビーチ、海、夕日 |
+| `festival_night` | 夜のお祭り | 賑やかな夜祭り | お祭り、花火、屋台 |
+| `shrine_day` | 昼間の神社 | 静寂な神社の境内 | 神社、お参り、鳥居 |
+| `cafe_afternoon` | 午後のカフェ | 落ち着いたカフェ | カフェ、コーヒー |
+| `aquarium_night` | 夜の水族館 | 幻想的な水族館 | 水族館、魚、海洋 |
+
+### シーン変更の仕組み
+- **自動検出**: 会話内容から場所に関するキーワードを検出
+- **スムーズ遷移**: 1.5秒のフェードイン・アウト効果
+- **文脈適応**: 会話の流れに自然に溶け込む背景変化
+
+## 🔧 技術仕様
+
+### API情報
+- **プロバイダー**: [Together AI](https://api.together.xyz/)
+- **使用モデル**: `Qwen/Qwen3-235B-A22B-Instruct-2507-tput`（デフォルト）
+- **レート制限**: 適応的制限により安定した動作
+- **フォールバック**: API障害時は固定応答で継続動作
+
+### システム要件
+- **Python**: 3.8以上（3.10推奨）
+- **メモリ**: 最小1GB、推奨2GB以上
+- **ストレージ**: 100MB以上の空き容量
+- **ネットワーク**: インターネット接続必須
+
+### パフォーマンス
+- **応答時間**: 通常2-5秒
+- **同時接続**: 複数ユーザー対応
+- **メモリ効率**: 自動圧縮により長期間の安定動作
+- **セッション管理**: 強化された分離機能
+
+## 🔧 トラブルシューティング
+
+### よくある問題と解決方法
+
+#### 🔑 APIキー関連
+**問題**: APIキーエラーが発生する
+**解決方法**:
+- `TOGETHER_API_KEY`が正しく設定されているか確認
+- [Together AI](https://api.together.xyz/)でAPIキーの有効性を確認
+- 環境変数の再設定後、アプリを再起動
+
+#### 🚀 起動・動作問題
+**問題**: アプリが起動しない
+**解決方法**:
+- 依存関係の再インストール: `pip install -r spaces/requirements.txt`
+- Pythonバージョン確認: `python --version`（3.8以上必須）
+- ポート8501が使用中でないか確認
+
+**問題**: 応答が生成されない
+**解決方法**:
+- インターネット接続を確認
+- APIの利用制限状況を確認
+- デバッグモードでエラーログを確認
+
+#### 🎭 マスク機能問題
+**問題**: マスクアイコンが表示されない
+**解決方法**:
+- ブラウザのキャッシュをクリア
+- 会話をリセットして再試行
+- デバッグモードでHIDDEN形式の検出状況を確認
+
+#### 💾 メモリ・セッション問題
+**問題**: メモリエラーや会話履歴の問題
+**解決方法**:
+- サイドバーの「🔄会話をリセット」を実行
+- ブラウザのキャッシュとCookieをクリア
+- アプリの再起動
+
+### 🛠️ デバッグ機能
+
+#### デバッグモードの有効化
+1. 環境変数で`DEBUG_MODE=true`を設定
+2. または、サイドバーの「🛠️デバッグ情報」を展開
+
+#### 確認できる情報
+- **セッション分離状態**: ユーザー独立性の確認
+- **メモリ統計**: 使用量と圧縮状況
+- **API応答ログ**: リクエスト・レスポンスの詳細
+- **マスク機能統計**: HIDDEN形式の検出状況
+
+#### ログファイルの場所
+- **Streamlitログ**: コンソール出力
+- **アプリケーションログ**: Python loggingモジュール
+- **セッション情報**: デバッグモードで表示
+
+## 👨‍💻 開発者向け情報
+
+### プロジェクト構造
+
+```
+mari-chat-app/
+├── spaces/                           # メインアプリケーション
+│   ├── main_app.py                  # 統合メインアプリ
+│   ├── components_chat_interface.py  # チャット機能（マスク機能付き）
+│   ├── session_manager.py           # セッション分離管理
+│   ├── core_dialogue.py             # 対話生成（HIDDEN形式対応）
+│   ├── core_sentiment.py            # 感情分析・好感度システム
+│   ├── core_scene_manager.py        # 動的背景システム
+│   ├── core_memory_manager.py       # 長期記憶管理
+│   ├── core_rate_limiter.py         # レート制限
+│   ├── letter_*.py                  # 非同期手紙生成システム
+│   ├── streamlit_styles.css         # カスタムCSS（マスク機能含む）
+│   ├── requirements.txt             # 依存関係
+│   └── .env                         # 環境変数設定
+├── .kiro/specs/                     # 機能仕様書
+│   ├── ui-redesign/                 # UI再設計仕様
+│   ├── async-letter-generation/     # 手紙機能仕様
+│   └── session-isolation-fix/       # セッション分離仕様
+├── test_*.py                        # テストスクリプト群
+├── Dockerfile                       # Docker設定
+├── docker-compose.yml              # Docker Compose設定
+└── README.md                       # このファイル
 ```
 
-## 📋 使用方法
+### 🎭 マスク機能の実装
 
-1. Webインターフェースにアクセス
-2. ユーザーIDを入力
-3. 手紙生成をリクエスト
-4. バッチ処理で自動生成される手紙を確認
+#### 核となる仕組み
+```python
+# HIDDEN形式の検出
+pattern = r'\[HIDDEN:(.*?)\](.*)'
+has_hidden, visible, hidden = detect_hidden_content(message)
 
-## 🧪 開発
+# フリップアニメーション
+CSS: transform: rotateY(180deg); transition: 0.4s ease-in-out;
 
-テスト実行：
-
-```bash
-python tests/test_config_setup.py
+# セッション状態管理
+st.session_state.message_flip_states[message_id] = is_flipped
 ```
 
-## 📞 サポート
+#### カスタマイズポイント
+- **プロンプト**: `SYSTEM_PROMPT_MARI`/`SYSTEM_PROMPT_URA`で隠された真実の生成を制御
+- **アニメーション**: `streamlit_styles.css`でフリップ効果を調整
+- **検出ロジック**: `_detect_hidden_content()`で形式を変更可能
 
-問題が発生した場合は、ログを確認してください。デバッグモードを有効にすると詳細な情報が表示されます。
+### ✉️ 手紙機能の実装
 
-<svg width="1200" height="800" xmlns="http://www.w3.org/2000/svg">
-  <defs>
-    <linearGradient id="bgGradient" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" style="stop-color:#667eea;stop-opacity:1" />
-      <stop offset="100%" style="stop-color:#764ba2;stop-opacity:1" />
-    </linearGradient>
+#### 非同期処理アーキテクチャ
+```python
+# バックグラウンド生成
+async def generate_letter_async(theme, user_id):
+    # 非同期でAI生成
     
-    <linearGradient id="cardGradient" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" style="stop-color:rgba(255,255,255,0.15);stop-opacity:1" />
-      <stop offset="100%" style="stop-color:rgba(255,255,255,0.05);stop-opacity:1" />
-    </linearGradient>
-    
-    <linearGradient id="titleGradient" x1="0%" y1="0%" x2="100%" y2="0%">
-      <stop offset="0%" style="stop-color:#ff6b6b;stop-opacity:1" />
-      <stop offset="50%" style="stop-color:#4ecdc4;stop-opacity:1" />
-      <stop offset="100%" style="stop-color:#45b7d1;stop-opacity:1" />
-    </linearGradient>
-    
-    <filter id="glow" x="-20%" y="-20%" width="140%" height="140%">
-      <feGaussianBlur stdDeviation="3" result="coloredBlur"/>
-      <feMerge> 
-        <feMergeNode in="coloredBlur"/>
-        <feMergeNode in="SourceGraphic"/>
-      </feMerge>
-    </filter>
-  </defs>
-  
-  <!-- Background -->
-  <rect width="1200" height="800" fill="url(#bgGradient)"/>
-  
-  <!-- Title -->
-  <text x="600" y="60" font-family="Arial, sans-serif" font-size="36" font-weight="bold" text-anchor="middle" fill="url(#titleGradient)" filter="url(#glow)">🤖 麻理プロジェクト 技術スタック</text>
-  <text x="600" y="90" font-family="Arial, sans-serif" font-size="18" text-anchor="middle" fill="rgba(255,255,255,0.8)">感情豊かなAI対話システムの技術構成</text>
-  
-  <!-- Frontend Card -->
-  <rect x="50" y="120" width="350" height="200" rx="15" fill="url(#cardGradient)" stroke="rgba(255,255,255,0.3)" stroke-width="1"/>
-  <text x="225" y="150" font-family="Arial, sans-serif" font-size="24" font-weight="bold" text-anchor="middle" fill="white">🌐 フロントエンド</text>
-  <text x="70" y="175" font-family="Arial, sans-serif" font-size="16" fill="white">• Streamlit Framework</text>
-  <text x="70" y="200" font-family="Arial, sans-serif" font-size="16" fill="white">• CSS3 + Animations</text>
-  <text x="70" y="225" font-family="Arial, sans-serif" font-size="16" fill="white">• リアルタイム通知</text>
-  <text x="70" y="250" font-family="Arial, sans-serif" font-size="16" fill="white">• レスポンシブデザイン</text>
-  <text x="70" y="275" font-family="Arial, sans-serif" font-size="16" fill="white">• セッション状態管理</text>
-  <text x="70" y="300" font-family="Arial, sans-serif" font-size="16" fill="white">• 動的背景変更</text>
-  
-  <!-- AI/ML Card -->
-  <rect x="425" y="120" width="350" height="200" rx="15" fill="url(#cardGradient)" stroke="rgba(255,255,255,0.3)" stroke-width="1"/>
-  <text x="600" y="150" font-family="Arial, sans-serif" font-size="24" font-weight="bold" text-anchor="middle" fill="white">🧠 AI・機械学習</text>
-  <text x="445" y="175" font-family="Arial, sans-serif" font-size="16" fill="white">• Together.ai API</text>
-  <text x="445" y="200" font-family="Arial, sans-serif" font-size="16" fill="white">• Groq API</text>
-  <text x="445" y="225" font-family="Arial, sans-serif" font-size="16" fill="white">• Qwen3-235B Model</text>
-  <text x="445" y="250" font-family="Arial, sans-serif" font-size="16" fill="white">• 感情分析アルゴリズム</text>
-  <text x="445" y="275" font-family="Arial, sans-serif" font-size="16" fill="white">• シーン検知システム</text>
-  <text x="445" y="300" font-family="Arial, sans-serif" font-size="16" fill="white">• 自然言語処理</text>
-  
-  <!-- Backend Card -->
-  <rect x="800" y="120" width="350" height="200" rx="15" fill="url(#cardGradient)" stroke="rgba(255,255,255,0.3)" stroke-width="1"/>
-  <text x="975" y="150" font-family="Arial, sans-serif" font-size="24" font-weight="bold" text-anchor="middle" fill="white">⚙️ バックエンド</text>
-  <text x="820" y="175" font-family="Arial, sans-serif" font-size="16" fill="white">• Python 3.9+</text>
-  <text x="820" y="200" font-family="Arial, sans-serif" font-size="16" fill="white">• 非同期処理 (asyncio)</text>
-  <text x="820" y="225" font-family="Arial, sans-serif" font-size="16" fill="white">• OpenAI API Client</text>
-  <text x="820" y="250" font-family="Arial, sans-serif" font-size="16" fill="white">• レート制限システム</text>
-  <text x="820" y="275" font-family="Arial, sans-serif" font-size="16" fill="white">• エラーハンドリング</text>
-  <text x="820" y="300" font-family="Arial, sans-serif" font-size="16" fill="white">• バッチ処理</text>
-  
-  <!-- Data Management Card -->
-  <rect x="50" y="350" width="350" height="200" rx="15" fill="url(#cardGradient)" stroke="rgba(255,255,255,0.3)" stroke-width="1"/>
-  <text x="225" y="380" font-family="Arial, sans-serif" font-size="24" font-weight="bold" text-anchor="middle" fill="white">💾 データ管理</text>
-  <text x="70" y="405" font-family="Arial, sans-serif" font-size="16" fill="white">• JSON ファイルストレージ</text>
-  <text x="70" y="430" font-family="Arial, sans-serif" font-size="16" fill="white">• メモリ圧縮アルゴリズム</text>
-  <text x="70" y="455" font-family="Arial, sans-serif" font-size="16" fill="white">• キーワード抽出</text>
-  <text x="70" y="480" font-family="Arial, sans-serif" font-size="16" fill="white">• 重要記憶管理</text>
-  <text x="70" y="505" font-family="Arial, sans-serif" font-size="16" fill="white">• 履歴圧縮</text>
-  <text x="70" y="530" font-family="Arial, sans-serif" font-size="16" fill="white">• データ整合性保証</text>
-  
-  <!-- System Skills Card -->
-  <rect x="425" y="350" width="350" height="200" rx="15" fill="url(#cardGradient)" stroke="rgba(255,255,255,0.3)" stroke-width="1"/>
-  <text x="600" y="380" font-family="Arial, sans-serif" font-size="24" font-weight="bold" text-anchor="middle" fill="white">🔧 システム技能</text>
-  <text x="445" y="405" font-family="Arial, sans-serif" font-size="16" fill="#4ecdc4" font-weight="bold">• モジュラー設計</text>
-  <text x="445" y="430" font-family="Arial, sans-serif" font-size="16" fill="#4ecdc4" font-weight="bold">• 非同期プログラミング</text>
-  <text x="445" y="455" font-family="Arial, sans-serif" font-size="16" fill="#4ecdc4" font-weight="bold">• パフォーマンス最適化</text>
-  <text x="445" y="480" font-family="Arial, sans-serif" font-size="16" fill="#4ecdc4" font-weight="bold">• セキュリティ対策</text>
-  <text x="445" y="505" font-family="Arial, sans-serif" font-size="16" fill="#4ecdc4" font-weight="bold">• スケーラブル設計</text>
-  <text x="445" y="530" font-family="Arial, sans-serif" font-size="16" fill="#4ecdc4" font-weight="bold">• テスト駆動開発</text>
-  
-  <!-- Deployment Card -->
-  <rect x="800" y="350" width="350" height="200" rx="15" fill="url(#cardGradient)" stroke="rgba(255,255,255,0.3)" stroke-width="1"/>
-  <text x="975" y="380" font-family="Arial, sans-serif" font-size="24" font-weight="bold" text-anchor="middle" fill="white">☁️ デプロイメント</text>
-  <text x="820" y="405" font-family="Arial, sans-serif" font-size="16" fill="white">• Hugging Face Spaces</text>
-  <text x="820" y="430" font-family="Arial, sans-serif" font-size="16" fill="white">• Docker コンテナ化</text>
-  <text x="820" y="455" font-family="Arial, sans-serif" font-size="16" fill="white">• 環境変数管理</text>
-  <text x="820" y="480" font-family="Arial, sans-serif" font-size="16" fill="white">• CI/CD パイプライン</text>
-  <text x="820" y="505" font-family="Arial, sans-serif" font-size="16" fill="white">• 依存関係管理</text>
-  <text x="820" y="530" font-family="Arial, sans-serif" font-size="16" fill="white">• モニタリング</text>
-  
-  <!-- Architecture Flow -->
-  <rect x="100" y="580" width="1000" height="150" rx="15" fill="url(#cardGradient)" stroke="rgba(255,255,255,0.3)" stroke-width="1"/>
-  <text x="600" y="610" font-family="Arial, sans-serif" font-size="24" font-weight="bold" text-anchor="middle" fill="white">🏗️ システムアーキテクチャフロー</text>
-  
-  <!-- Flow Boxes -->
-  <rect x="150" y="640" width="150" height="60" rx="10" fill="rgba(102,126,234,0.8)" stroke="rgba(255,255,255,0.5)" stroke-width="1"/>
-  <text x="225" y="660" font-family="Arial, sans-serif" font-size="14" font-weight="bold" text-anchor="middle" fill="white">📱 Streamlit UI</text>
-  <text x="225" y="680" font-family="Arial, sans-serif" font-size="12" text-anchor="middle" fill="rgba(255,255,255,0.8)">ユーザーインターフェース</text>
-  
-  <text x="330" y="675" font-family="Arial, sans-serif" font-size="24" text-anchor="middle" fill="#4ecdc4">→</text>
-  
-  <rect x="370" y="640" width="150" height="60" rx="10" fill="rgba(102,126,234,0.8)" stroke="rgba(255,255,255,0.5)" stroke-width="1"/>
-  <text x="445" y="660" font-family="Arial, sans-serif" font-size="14" font-weight="bold" text-anchor="middle" fill="white">🐍 Python Backend</text>
-  <text x="445" y="680" font-family="Arial, sans-serif" font-size="12" text-anchor="middle" fill="rgba(255,255,255,0.8)">ビジネスロジック</text>
-  
-  <text x="550" y="675" font-family="Arial, sans-serif" font-size="24" text-anchor="middle" fill="#4ecdc4">→</text>
-  
-  <rect x="590" y="640" width="150" height="60" rx="10" fill="rgba(102,126,234,0.8)" stroke="rgba(255,255,255,0.5)" stroke-width="1"/>
-  <text x="665" y="660" font-family="Arial, sans-serif" font-size="14" font-weight="bold" text-anchor="middle" fill="white">🤖 AI APIs</text>
-  <text x="665" y="680" font-family="Arial, sans-serif" font-size="12" text-anchor="middle" fill="rgba(255,255,255,0.8)">Together.ai + Groq</text>
-  
-  <text x="770" y="675" font-family="Arial, sans-serif" font-size="24" text-anchor="middle" fill="#4ecdc4">→</text>
-  
-  <rect x="810" y="640" width="150" height="60" rx="10" fill="rgba(102,126,234,0.8)" stroke="rgba(255,255,255,0.5)" stroke-width="1"/>
-  <text x="885" y="660" font-family="Arial, sans-serif" font-size="14" font-weight="bold" text-anchor="middle" fill="white">💾 JSON Storage</text>
-  <text x="885" y="680" font-family="Arial, sans-serif" font-size="12" text-anchor="middle" fill="rgba(255,255,255,0.8)">データ永続化</text>
-  
-  <!-- Footer -->
-  <text x="600" y="760" font-family="Arial, sans-serif" font-size="16" text-anchor="middle" fill="rgba(255,255,255,0.9)">💡 特徴的な技術力: AI API統合、非同期処理、リアルタイムUI、感情分析、シーン管理</text>
-</svg>
+# スケジューラー
+batch_scheduler.schedule_generation(user_id, theme, delivery_time)
+
+# ストレージ管理
+async_storage.save_letter(letter_data)
+```
+
+### 🛡️ セッション分離システム
+
+#### 強化された分離機能
+```python
+class SessionManager:
+    def __init__(self):
+        self.session_id = id(st.session_state)
+        self.user_id = None
+        
+    def validate_session_integrity(self):
+        # セッション整合性チェック
+```
+
+### カスタマイズガイド
+
+#### 新しいシーンの追加
+1. `core_scene_manager.py`の`SCENE_CONFIGS`に追加
+2. 背景画像URLを設定
+3. トリガーワードを定義
+
+#### プロンプトのカスタマイズ
+```bash
+# 通常モード
+SYSTEM_PROMPT_MARI="あなたのカスタムプロンプト..."
+
+# セーフティ解除モード  
+SYSTEM_PROMPT_URA="より大胆なプロンプト..."
+```
+
+#### UIスタイルの変更
+- `streamlit_styles.css`でカラーテーマ、アニメーション、レイアウトを調整
+- CSS変数を使用した統一的なデザインシステム
+
+### テスト機能
+
+#### 提供されるテストスクリプト
+- `test_mask_functionality.py`: マスク機能の動作確認
+- `test_multiple_hidden_fixed.py`: 複数HIDDEN形式の処理確認
+- `test_hidden_format_issue.py`: HIDDEN形式の問題診断
+- `debug_session_state.py`: セッション状態のデバッグ
+
+#### テスト実行方法
+```bash
+python test_mask_functionality.py
+python test_multiple_hidden_fixed.py
+```
+
+## 🤝 貢献・開発参加
+
+### バグ報告・機能提案
+- **Issues**: GitHubのIssuesでバグ報告や機能提案をお願いします
+- **Discussion**: 新機能のアイデアや改善案の議論
+- **Pull Request**: コード改善やバグ修正のPRを歓迎します
+
+### 開発ガイドライン
+1. **コードスタイル**: PEP 8に準拠
+2. **テスト**: 新機能には対応するテストを追加
+3. **ドキュメント**: 変更内容をREADMEに反映
+4. **コミット**: 明確で説明的なコミットメッセージ
+
+### 開発環境のセットアップ
+```bash
+# 開発用依存関係のインストール
+pip install -r spaces/requirements.txt
+
+# テストの実行
+python -m pytest tests/
+
+# コードフォーマット
+black spaces/
+flake8 spaces/
+```
+
+## 📄 ライセンス
+
+このプロジェクトは**MITライセンス**の下で公開されています。詳細は[LICENSE](LICENSE)ファイルをご確認ください。
+
+## 🙏 謝辞
+
+- **Together AI**: 高品質なLLM APIの提供
+- **Streamlit**: 直感的なWebアプリフレームワーク
+- **コミュニティ**: バグ報告や機能提案をいただいた皆様
+
+## 📞 サポート・連絡先
+
+- **GitHub Issues**: バグ報告・機能提案
+- **Discussions**: 一般的な質問・議論
+- **Email**: 重要な問題やセキュリティ関連
+
+## 🔄 更新履歴
+
+### v2.0.0 (最新)
+- 🎭 **マスク機能**: 隠された真実の表示機能
+- 🔓 **セーフティ解除モード**: より大胆な表現モード
+- ✉️ **非同期手紙生成**: バックグラウンド手紙生成
+- 🛡️ **セッション分離強化**: マルチユーザー対応改善
+- 🎨 **UI再設計**: モダンで直感的なインターフェース
+
+### v1.0.0
+- 基本的なチャット機能
+- 好感度システム
+- 動的背景変更
+- メモリ管理機能
+
+---
+
+<div align="center">
+
+**🎭 Made with ❤️ using Streamlit & Together AI 🎭**
+
+*麻理との特別な時間をお楽しみください*
+
+[![Streamlit](https://img.shields.io/badge/Streamlit-FF4B4B?style=for-the-badge&logo=streamlit&logoColor=white)](https://streamlit.io/)
+[![Together AI](https://img.shields.io/badge/Together%20AI-000000?style=for-the-badge&logo=ai&logoColor=white)](https://together.ai/)
+[![Python](https://img.shields.io/badge/Python-3776AB?style=for-the-badge&logo=python&logoColor=white)](https://python.org/)
+
+</div>
