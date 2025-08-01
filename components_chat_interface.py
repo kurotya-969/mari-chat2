@@ -136,7 +136,7 @@ class ChatInterface:
                     visible_content = re.sub(r'\[HIDDEN:.*?\]', '', visible_content).strip()
                     logger.info(f"🔧 複数HIDDEN除去後: 表示='{visible_content}'")
                 
-                logger.info(f"🎭 隠された真実を検出: 表示='{visible_content}', 隠し='{hidden_content}'")
+                logger.info(f"🐕 隠された真実を検出: 表示='{visible_content}', 隠し='{hidden_content}'")
                 return True, visible_content, hidden_content
             
             # マーカーがない場合は通常のメッセージ
@@ -160,7 +160,7 @@ class ChatInterface:
             is_initial: 初期メッセージかどうか
         """
         try:
-            logger.info(f"🎭 マスクアイコン付きメッセージを表示: ID={message_id}, フリップ={is_flipped}")
+            logger.info(f"🐕 ポチモード付きメッセージを表示: ID={message_id}, フリップ={is_flipped}")
             # フリップアニメーション用CSS
             flip_css = f"""
             <style>
@@ -249,44 +249,40 @@ class ChatInterface:
             </style>
             """
             
+            # 犬のボタンの状態を事前にチェックして即座に反映
+            show_all_hidden = st.session_state.get('show_all_hidden', False)
+            
+            # 犬のボタンの状態に従って表示を切り替え
+            if show_all_hidden != is_flipped:
+                st.session_state.message_flip_states[message_id] = show_all_hidden
+                is_flipped = show_all_hidden
+            
             # 現在表示するコンテンツを決定
             current_content = hidden_content if is_flipped else visible_content
             initial_class = "mari-initial-message" if is_initial else ""
             
-            # メッセージとボタンを横並びで表示
-            col_message, col_button = st.columns([0.9, 0.1])
+            # メッセージを全幅で表示（ボタンは削除）
+            # 背景色を動的に設定
+            bg_color = "#FFF8E1" if is_flipped else "#F5F5F5"
+            message_style = f"""
+            <div style="
+                padding: 15px; 
+                background: {bg_color}; 
+                border-radius: 12px; 
+                border: 1px solid rgba(0,0,0,0.1); 
+                min-height: 50px;
+                font-family: var(--mari-font);
+                line-height: 1.7;
+                margin: 8px 0;
+            ">
+                <div class="{initial_class}">{current_content}</div>
+            </div>
+            """
+            st.markdown(message_style, unsafe_allow_html=True)
             
-            with col_message:
-                # 背景色を動的に設定
-                bg_color = "#FFF8E1" if is_flipped else "#F5F5F5"
-                message_style = f"""
-                <div style="
-                    padding: 15px; 
-                    background: {bg_color}; 
-                    border-radius: 12px; 
-                    border: 1px solid rgba(0,0,0,0.1); 
-                    min-height: 50px;
-                    font-family: var(--mari-font);
-                    line-height: 1.7;
-                ">
-                    <div class="{initial_class}">{current_content}</div>
-                </div>
-                """
-                st.markdown(message_style, unsafe_allow_html=True)
-            
-            with col_button:
-                # マスクボタン
-                button_label = "🔄" if is_flipped else "🎭"
-                button_help = "元に戻す" if is_flipped else "本音を見る"
-                
-                if st.button(button_label, key=f"flip_btn_{message_id}", help=button_help):
-                    st.session_state.message_flip_states[message_id] = not is_flipped
-                    logger.info(f"🔄 フリップ状態変更: {message_id} -> {not is_flipped}")
-                    st.rerun()
-            
-            # マスク機能の状態表示（開発用）
+            # 本音表示機能の状態表示（開発用）
             if st.session_state.get("debug_mode", False):
-                st.caption(f"🎭 Mask: ID={message_id}, Hidden={len(hidden_content)>0}, Flipped={is_flipped}")
+                st.caption(f"🐕 Dog Mode: ID={message_id}, Hidden={len(hidden_content)>0}, Showing={is_flipped}")
                 
         except Exception as e:
             logger.error(f"フリップアニメーション表示エラー: {e}")

@@ -14,11 +14,11 @@ class StatusDisplay:
     def __init__(self):
         """ステータス表示の初期化"""
         self.stage_colors = {
-            "ステージ1：敵対": {"color": "#ff4757", "emoji": "🔴", "bg_color": "rgba(255, 71, 87, 0.1)"},
-            "ステージ2：警戒": {"color": "#ff6348", "emoji": "🟠", "bg_color": "rgba(255, 99, 72, 0.1)"},
-            "ステージ3：中立": {"color": "#ffa502", "emoji": "🟡", "bg_color": "rgba(255, 165, 2, 0.1)"},
-            "ステージ4：好意": {"color": "#2ed573", "emoji": "🟢", "bg_color": "rgba(46, 213, 115, 0.1)"},
-            "ステージ5：親密": {"color": "#a55eea", "emoji": "💜", "bg_color": "rgba(165, 94, 234, 0.1)"}
+            "敵対": {"color": "#ff4757", "emoji": "🔴", "bg_color": "rgba(255, 71, 87, 0.1)"},
+            "警戒": {"color": "#ff6348", "emoji": "🟠", "bg_color": "rgba(255, 99, 72, 0.1)"},
+            "中立": {"color": "#ffa502", "emoji": "🟡", "bg_color": "rgba(255, 165, 2, 0.1)"},
+            "好意": {"color": "#2ed573", "emoji": "🟢", "bg_color": "rgba(46, 213, 115, 0.1)"},
+            "親密": {"color": "#a55eea", "emoji": "💜", "bg_color": "rgba(165, 94, 234, 0.1)"}
         }
     
     def get_affection_color(self, affection: int) -> str:

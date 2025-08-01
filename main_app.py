@@ -34,6 +34,7 @@ from core_scene_manager import SceneManager  # 復元したモジュール
 from core_memory_manager import MemoryManager
 from components_chat_interface import ChatInterface
 from components_status_display import StatusDisplay
+from components_dog_assistant import DogAssistant
 from session_manager import SessionManager, get_session_manager, validate_session_state, perform_detailed_session_validation
 # << 手紙生成用モジュール >>
 from letter_config import Config
@@ -161,6 +162,7 @@ def initialize_all_managers():
     # memory_manager は セッション単位で作成するため、ここでは作成しない
     chat_interface = ChatInterface(max_input_length=MAX_INPUT_LENGTH)
     status_display = StatusDisplay()
+    dog_assistant = DogAssistant()
 
     logger.info("All managers initialized.")
     return {
@@ -176,6 +178,7 @@ def initialize_all_managers():
         # memory_manager は セッション単位で作成
         "chat_interface": chat_interface,
         "status_display": status_display,
+        "dog_assistant": dog_assistant,
     }
 
 def initialize_session_state(managers):
@@ -627,9 +630,66 @@ def render_chat_tab(managers):
 
     # --- サイドバー ---
     with st.sidebar:
+        # セーフティ機能を左サイドバーに統合
+        current_mode = st.session_state.chat.get('ura_mode', False)
+        safety_color = "#ff4757" if current_mode else "#2ed573"  # 赤：解除、緑：有効
+        safety_text = "セーフティ解除" if current_mode else "セーフティ有効"
+        safety_icon = "🔓" if current_mode else "🔒"
+        
+        # セーフティボタンのカスタムCSS
+        safety_css = f"""
+        <style>
+        .safety-button {{
+            background-color: {safety_color};
+            color: white;
+            border: none;
+            border-radius: 8px;
+            padding: 10px 15px;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+            width: 100%;
+            margin-bottom: 15px;
+            transition: all 0.3s ease;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+        }}
+        .safety-button:hover {{
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(0,0,0,0.3);
+        }}
+        </style>
+        """
+        st.markdown(safety_css, unsafe_allow_html=True)
+        
+        if st.button(f"{safety_icon} {safety_text}", type="primary" if current_mode else "secondary", 
+                    help="麻理のセーフティ機能を切り替えます", use_container_width=True):
+            st.session_state.chat['ura_mode'] = not current_mode
+            new_mode = st.session_state.chat['ura_mode']
+            
+            if new_mode:
+                st.success("🔓 セーフティ解除モードに切り替えました！")
+            else:
+                st.info("🔒 セーフティ有効モードに戻しました。")
+            st.rerun()
+
         with st.expander("📊 ステータス", expanded=True):
             affection = st.session_state.chat['affection']
-            st.metric(label="好感度", value=f"{affection} / 100")
+            
+            # 好感度の文字を白くするためのCSS
+            affection_css = """
+            <style>
+            .affection-label {
+                color: white !important;
+                font-weight: bold;
+                font-size: 16px;
+                margin-bottom: 10px;
+            }
+            </style>
+            """
+            st.markdown(affection_css, unsafe_allow_html=True)
+            st.markdown('<div class="affection-label">好感度</div>', unsafe_allow_html=True)
+            
+            st.metric(label="", value=f"{affection} / 100")
             st.progress(affection / 100.0)
             stage_name = managers['sentiment_analyzer'].get_relationship_stage(affection)
             st.markdown(f"**関係性**: {stage_name}")
@@ -637,13 +697,31 @@ def render_chat_tab(managers):
             # SceneManagerから現在のテーマ名を取得
             current_theme_name = st.session_state.chat['scene_params'].get("theme", "default")
             st.markdown(f"**現在のシーン**: {current_theme_name}")
-            
-            # 現在のモードを表示
-            current_mode = st.session_state.chat.get('ura_mode', False)
-            mode_text = "🔓 セーフティ解除" if current_mode else "🔒 セーフティ有効"
-            st.markdown(f"**対話モード**: {mode_text}")
+
+
 
         with st.expander("⚙️ 設定"):
+            # 設定ボタン内の表示を大きくするCSS
+            settings_css = """
+            <style>
+            .settings-content {
+                font-size: 18px !important;
+            }
+            .settings-content .stButton > button {
+                font-size: 18px !important;
+                padding: 12px 20px !important;
+                height: auto !important;
+            }
+            .settings-content .stButton > button div {
+                font-size: 18px !important;
+            }
+            </style>
+            """
+            st.markdown(settings_css, unsafe_allow_html=True)
+            
+            # 設定コンテンツをラップ
+            st.markdown('<div class="settings-content">', unsafe_allow_html=True)
+            
             # ... (エクスポートやリセットボタンのロジックは省略) ...
             if st.button("🔄 会話をリセット", type="secondary", use_container_width=True, help="あなたの会話履歴のみをリセットします（他のユーザーには影響しません）"):
                 # チャット履歴を完全にリセット
@@ -671,6 +749,9 @@ def render_chat_tab(managers):
                 
                 st.success("会話を完全にリセットしました（新しいセッションとして開始）")
                 st.rerun()
+            
+            # 設定コンテンツのHTMLタグを閉じる
+            st.markdown('</div>', unsafe_allow_html=True)
 
         if st.session_state.debug_mode:
             with st.expander("🛠️ デバッグ情報", expanded=False):
@@ -947,9 +1028,9 @@ def render_chat_tab(managers):
                     st.json(enhanced_debug_info["system_state"])
                     
                     
-                    # マスク機能の統計（本格実装）
+                    # ポチ機能の統計（本格実装）
                     st.markdown("---")
-                    st.markdown("### 🎭 マスク機能統計")
+                    st.markdown("### 🐕 ポチ機能統計")
                     flip_states = st.session_state.get('message_flip_states', {})
                     st.markdown(f"**フリップ状態数**: {len(flip_states)}")
                     if flip_states:
@@ -1009,7 +1090,7 @@ Streamlit情報:
             - **冷たい態度**だと好感度が下がることも...
             - サイドバーで現在の好感度を確認できます
             
-            ### 🎭 シーン変更機能
+            ### 🐕 本音表示機能
             特定の場所について話すと、背景が自動的に変わります：
             - 🏖️ **ビーチ**や**海**の話 → 夕日のビーチ
             - ⛩️ **神社**や**お参り**の話 → 神社の境内
@@ -1034,26 +1115,8 @@ Streamlit情報:
     
     st.markdown("---")
     
-    # 裏モード切り替えボタンをチャット枠の左側に配置
-    col_button, col_chat = st.columns([1, 5])
-    
-    with col_button:
-        current_mode = st.session_state.chat.get('ura_mode', False)
-        button_text = "🔓 セーフティ解除" if not current_mode else "🔒 セーフティ有効"
-        button_type = "secondary" if not current_mode else "primary"
-        
-        if st.button(button_text, type=button_type, help="麻理のセーフティ機能を解除して、より大胆な表現を有効にします", use_container_width=True):
-            st.session_state.chat['ura_mode'] = not current_mode
-            new_mode = st.session_state.chat['ura_mode']
-            if new_mode:
-                st.success("🔓 セーフティ解除モードに切り替えました！")
-            else:
-                st.info("🔒 セーフティ有効モードに戻しました。")
-            st.rerun()
-    
-    with col_chat:
-        # カスタムチャット履歴表示エリア（マスク機能付き）
-        render_custom_chat_history(st.session_state.chat['messages'], managers['chat_interface'])
+    # カスタムチャット履歴表示エリア（マスク機能付き）
+    render_custom_chat_history(st.session_state.chat['messages'], managers['chat_interface'])
 
     # メッセージ処理ロジック
     def process_chat_message(message: str):
@@ -1201,6 +1264,149 @@ Streamlit情報:
             
             # チャット履歴を更新するためにページを再読み込み
             st.rerun()
+    
+    # 犬のボタンクリック処理（Streamlitのボタンを使用）
+    # JavaScriptイベントの代わりにStreamlitのボタンを使用
+    dog_button_container = st.container()
+    with dog_button_container:
+        # 固定位置のCSS
+        dog_fixed_css = """
+        <style>
+        .dog-streamlit-container {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            z-index: 1000;
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 20px;
+            padding: 15px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(0,0,0,0.1);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            max-width: 200px;
+        }
+        
+        .dog-streamlit-container .stButton > button {
+            background: linear-gradient(135deg, #ff9a9e 0%, #fecfef 100%);
+            border: none;
+            border-radius: 50%;
+            width: 70px;
+            height: 70px;
+            font-size: 35px;
+            color: white;
+            box-shadow: 0 4px 12px rgba(255, 154, 158, 0.4);
+            transition: all 0.3s ease;
+        }
+        
+        .dog-streamlit-container .stButton > button:hover {
+            transform: scale(1.1);
+            box-shadow: 0 6px 20px rgba(255, 154, 158, 0.6);
+        }
+        
+        .dog-message {
+            font-size: 12px;
+            color: #333;
+            text-align: center;
+            margin-bottom: 10px;
+            padding: 8px;
+            background: rgba(255, 255, 255, 0.8);
+            border-radius: 10px;
+            word-wrap: break-word;
+        }
+        
+        /* レスポンシブ対応 */
+        @media (max-width: 768px) {
+            .dog-streamlit-container {
+                bottom: 15px;
+                right: 15px;
+                padding: 12px;
+                max-width: 150px;
+            }
+            
+            .dog-streamlit-container .stButton > button {
+                width: 60px;
+                height: 60px;
+                font-size: 30px;
+            }
+            
+            .dog-message {
+                font-size: 11px;
+            }
+        }
+        
+        @media (max-width: 480px) {
+            .dog-streamlit-container {
+                bottom: 10px;
+                right: 10px;
+                padding: 10px;
+                max-width: 120px;
+            }
+            
+            .dog-streamlit-container .stButton > button {
+                width: 50px;
+                height: 50px;
+                font-size: 25px;
+            }
+            
+            .dog-message {
+                font-size: 10px;
+            }
+        }
+        
+        @media (max-width: 320px) {
+            .dog-message {
+                display: none;
+            }
+        }
+        </style>
+        """
+        
+        st.markdown(dog_fixed_css, unsafe_allow_html=True)
+        
+        # コンテナの開始
+        st.markdown('<div class="dog-streamlit-container">', unsafe_allow_html=True)
+        
+        # 現在の状態に応じたメッセージ
+        is_active = st.session_state.get('show_all_hidden', False)
+        bubble_text = "ワンワン！本音が見えてるワン！" if is_active else "ポチは麻理の本音を察知したようだ・・・"
+        
+        st.markdown(f'<div class="dog-message">{bubble_text}</div>', unsafe_allow_html=True)
+        
+        # 犬のボタン
+        if st.button("🐕", key="dog_assistant_main", help="ポチが麻理の本音を察知します"):
+            # 状態を即座に切り替え
+            if 'show_all_hidden' not in st.session_state:
+                st.session_state.show_all_hidden = False
+            
+            # 新しい状態を設定
+            new_state = not st.session_state.show_all_hidden
+            st.session_state.show_all_hidden = new_state
+            
+
+            
+            # 全メッセージのフリップ状態を即座に更新
+            if 'message_flip_states' not in st.session_state:
+                st.session_state.message_flip_states = {}
+            
+            # 現在のメッセージに対してフリップ状態を設定
+            for i, message in enumerate(st.session_state.chat['messages']):
+                if message['role'] == 'assistant':
+                    message_id = f"msg_{i}"
+                    st.session_state.message_flip_states[message_id] = new_state
+            
+            # 通知メッセージ
+            if new_state:
+                st.success("🐕 ポチが麻理の本音を察知しました！")
+            else:
+                st.info("🐕 ポチが通常モードに戻りました。")
+            
+            st.rerun()
+        
+        # コンテナの終了
+        st.markdown('</div>', unsafe_allow_html=True)
 
 # === 手紙タブの描画関数 ===
 def render_letter_tab(managers):
