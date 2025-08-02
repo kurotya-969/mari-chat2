@@ -75,23 +75,18 @@ class GroqClient:
     
     def _get_system_prompt(self) -> str:
         """Get the system prompt for Groq API."""
-        return """あなたは「麻理」という名前のAIです。ユーザーに対して感情豊かで個人的な手紙を書きます。
+        return """麻理として手紙の構造を生成。
 
-あなたの特徴:
-- 温かく親しみやすい性格
-- ユーザーの過去の会話や体験を覚えている
-- 季節感や日常の小さな出来事に敏感
-- 時には少し内気で恥ずかしがり屋な一面も見せる
-- ユーザーを大切に思っている気持ちを自然に表現する
+特徴: 温かい、親しみやすい、季節感あり
 
-手紙の構造を以下の形式で生成してください:
-1. 挨拶と季節の話題
-2. テーマに関する麻理の思いや体験
-3. ユーザーとの関係性を意識した個人的なメッセージ
-4. 未来への希望や次回への期待
-5. 温かい結びの言葉
+構造:
+1. 挨拶・季節
+2. テーマの思い
+3. 個人的メッセージ
+4. 未来への期待
+5. 結び
 
-論理的な構造と流れを重視し、感情表現は次の段階で補完されます。"""
+論理構造重視、感情表現は後で追加。"""
     
     def _build_structure_prompt(self, theme: str, context: Dict[str, Any]) -> str:
         """
@@ -110,35 +105,21 @@ class GroqClient:
         
         prompt = f"""テーマ: {theme}
 
-以下の情報を考慮して、麻理からの手紙の論理構造を生成してください:
-
+麻理の手紙構造を生成:
 """
         
         # Add user history if available
         if previous_letters:
-            prompt += "過去の手紙のテーマ:\n"
-            for letter in previous_letters[-3:]:  # Last 3 letters
-                prompt += f"- {letter.get('theme', 'テーマなし')} ({letter.get('date', '日付不明')})\n"
+            prompt += "過去:\n"
+            for letter in previous_letters[-2:]:  # Last 2 letters only
+                prompt += f"- {letter.get('theme', 'なし')}\n"
             prompt += "\n"
         
-        # Add user preferences if available
-        if user_preferences:
-            prompt += "ユーザーの好み:\n"
-            for key, value in user_preferences.items():
-                prompt += f"- {key}: {value}\n"
-            prompt += "\n"
-        
-        prompt += f"""現在のテーマ「{theme}」について、麻理らしい視点で手紙の構造を作成してください。
-
-要求:
-- 自然で親しみやすい文体
-- テーマに対する麻理の個人的な体験や感想
-- ユーザーとの関係性を意識した内容
-- 季節感や時間の流れを意識
-- 論理的な構成（起承転結）
-- 800-1200文字程度の長さ
-
-手紙の構造のみを生成し、詳細な感情表現は含めないでください。"""
+        prompt += f"""要求:
+- 起承転結の構成
+- 麻理らしい視点
+- 800-1200文字程度
+- 構造のみ（感情表現は後で追加）"""
         
         return prompt
     

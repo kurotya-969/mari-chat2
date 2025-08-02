@@ -238,6 +238,28 @@ class SessionManager:
         
         return isolation_status
     
+    def reset_session_data(self):
+        """
+        セッションデータを完全にリセットする
+        フルリセット時に使用
+        """
+        try:
+            # 検証履歴をクリア
+            self.validation_history.clear()
+            self.recovery_history.clear()
+            
+            # カウンターをリセット
+            self.validation_count = 0
+            self.recovery_count = 0
+            
+            # タイムスタンプを更新
+            self.last_validated = datetime.now()
+            
+            logger.info("SessionManagerのデータをリセットしました")
+            
+        except Exception as e:
+            logger.error(f"SessionManagerリセットエラー: {e}")
+    
     def get_isolation_summary(self) -> Dict[str, str]:
         """
         セッション分離状態のサマリーを取得する
@@ -401,16 +423,18 @@ def perform_detailed_session_validation(session_manager: SessionManager) -> List
                 }
             })
         
-        # 2. 必須セッション状態の存在チェック
-        required_keys = ['user_id', 'chat', 'memory_manager']
-        for key in required_keys:
-            if key not in st.session_state:
-                validation_issues.append({
-                    "type": "missing_required_key",
-                    "severity": "critical",
-                    "description": f"Required session state key '{key}' is missing",
-                    "details": {"missing_key": key}
-                })
+        # 2. 必須セッション状態の存在チェック（初期化後のみ）
+        # 初期化中の場合はこのチェックをスキップ
+        if st.session_state.get('_initialization_complete', False):
+            required_keys = ['user_id', 'chat', 'memory_manager']
+            for key in required_keys:
+                if key not in st.session_state:
+                    validation_issues.append({
+                        "type": "missing_required_key",
+                        "severity": "critical",
+                        "description": f"Required session state key '{key}' is missing",
+                        "details": {"missing_key": key}
+                    })
         
         # 3. チャット状態の整合性チェック
         if 'chat' in st.session_state:

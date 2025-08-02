@@ -104,7 +104,6 @@ class LetterGenerator:
             'theme': theme,
             'user_history': user_history,
             'previous_letters': [],
-            'user_preferences': {},
             'interaction_count': 0
         }
         
@@ -129,11 +128,6 @@ class LetterGenerator:
         if 'profile' in user_history:
             profile = user_history['profile']
             context['interaction_count'] = profile.get('total_letters', 0)
-            
-            # ユーザーの好みを推測（過去のテーマから）
-            if context['previous_letters']:
-                themes = [letter['theme'] for letter in context['previous_letters']]
-                context['user_preferences']['favorite_themes'] = themes
         
         # 季節情報を追加
         current_month = datetime.now().month

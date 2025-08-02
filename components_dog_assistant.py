@@ -15,7 +15,7 @@ class DogAssistant:
         self.default_message = "ポチは麻理の本音を察知したようだ・・・"
         self.active_message = "ワンワン！本音が見えてるワン！"
     
-    def render_dog_component(self):
+    def render_dog_component(self, tutorial_manager=None):
         """画面右下に固定配置される犬のコンポーネントを描画"""
         try:
             # 犬のコンポーネントのCSS（レスポンシブ対応）
@@ -217,45 +217,138 @@ class DogAssistant:
             </div>
             """
             
-            # CSSとJavaScriptとHTMLを結合して表示
-            st.markdown(dog_css + dog_js + dog_html, unsafe_allow_html=True)
+            # HTMLコンポーネント（ボタン以外）を表示
+            dog_display_html = f"""
+            <div class="dog-assistant-container">
+                <div class="dog-speech-bubble">
+                    {bubble_text}
+                </div>
+                <div style="width: 70px; height: 70px; display: flex; align-items: center; justify-content: center;">
+                    <!-- Streamlitボタンがここに配置される -->
+                </div>
+            </div>
+            """
+            
+            st.markdown(dog_css + dog_display_html, unsafe_allow_html=True)
+            
+            # Streamlitボタンを固定位置に配置
+            button_css = """
+            <style>
+            .dog-button-overlay {
+                position: fixed;
+                bottom: 20px;
+                right: 20px;
+                z-index: 1001;
+                pointer-events: auto;
+            }
+            
+            .dog-button-overlay .stButton > button {
+                background: linear-gradient(135deg, #ff9a9e 0%, #fecfef 100%);
+                border: none;
+                border-radius: 50%;
+                width: 70px;
+                height: 70px;
+                font-size: 35px;
+                color: white;
+                box-shadow: 0 4px 15px rgba(255, 154, 158, 0.4);
+                transition: all 0.3s ease;
+                animation: dogBounce 2s ease-in-out infinite;
+            }
+            
+            .dog-button-overlay .stButton > button:hover {
+                transform: scale(1.1);
+                box-shadow: 0 6px 20px rgba(255, 154, 158, 0.6);
+            }
+            
+            @keyframes dogBounce {
+                0%, 100% { transform: translateY(0px); }
+                50% { transform: translateY(-3px); }
+            }
+            
+            @media (max-width: 768px) {
+                .dog-button-overlay {
+                    bottom: 15px;
+                    right: 15px;
+                }
+                
+                .dog-button-overlay .stButton > button {
+                    width: 60px;
+                    height: 60px;
+                    font-size: 30px;
+                }
+            }
+            
+            @media (max-width: 480px) {
+                .dog-button-overlay {
+                    bottom: 10px;
+                    right: 10px;
+                }
+                
+                .dog-button-overlay .stButton > button {
+                    width: 50px;
+                    height: 50px;
+                    font-size: 25px;
+                }
+            }
+            </style>
+            """
+            
+            st.markdown(button_css, unsafe_allow_html=True)
+            st.markdown('<div class="dog-button-overlay">', unsafe_allow_html=True)
+            
+            # ボタンクリック処理
+            button_key = f"dog_fixed_{is_active}"
+            button_help = "本音を隠す" if is_active else "本音を見る"
+            if st.button("🐕", key=button_key, help=button_help):
+                self.handle_dog_button_click(tutorial_manager)
+                logger.info("右下の犬のボタンがクリックされました")
+            
+            st.markdown('</div>', unsafe_allow_html=True)
             
             logger.debug(f"犬のコンポーネントを描画しました (active: {is_active})")
             
         except Exception as e:
             logger.error(f"犬のコンポーネント描画エラー: {e}")
     
-    def handle_dog_button_click(self):
-        """犬のボタンクリック処理"""
+    def handle_dog_button_click(self, tutorial_manager=None):
+        """犬のボタンクリック処理（無限ループ防止版）"""
         try:
             # 本音表示機能のトリガー
             if 'show_all_hidden' not in st.session_state:
                 st.session_state.show_all_hidden = False
             
-            # 新しい状態を設定
-            new_state = not st.session_state.show_all_hidden
-            st.session_state.show_all_hidden = new_state
+            # 現在の状態を取得
+            current_state = st.session_state.show_all_hidden
+            new_state = not current_state
             
-
-            
-            # 全メッセージのフリップ状態を即座に更新
-            if 'message_flip_states' not in st.session_state:
-                st.session_state.message_flip_states = {}
-            
-            # 現在のメッセージに対してフリップ状態を設定
-            if 'chat' in st.session_state and 'messages' in st.session_state.chat:
-                for i, message in enumerate(st.session_state.chat['messages']):
-                    if message['role'] == 'assistant':
-                        message_id = f"msg_{i}"
-                        st.session_state.message_flip_states[message_id] = new_state
-            
-            # 通知メッセージ
-            if new_state:
-                st.success("🐕 ポチが麻理の本音を察知しました！")
+            # 状態が実際に変更される場合のみ処理
+            if current_state != new_state:
+                st.session_state.show_all_hidden = new_state
+                
+                # 全メッセージのフリップ状態を即座に更新
+                if 'message_flip_states' not in st.session_state:
+                    st.session_state.message_flip_states = {}
+                
+                # 現在のメッセージに対してフリップ状態を設定
+                if 'chat' in st.session_state and 'messages' in st.session_state.chat:
+                    for i, message in enumerate(st.session_state.chat['messages']):
+                        if message['role'] == 'assistant':
+                            message_id = f"msg_{i}"
+                            st.session_state.message_flip_states[message_id] = new_state
+                
+                # チュートリアルステップ2を完了（tutorial_managerが渡された場合）
+                if tutorial_manager:
+                    tutorial_manager.check_step_completion(2, True)
+                
+                # 通知メッセージ（一度だけ表示）
+                if new_state:
+                    st.success("🐕 ポチが麻理の本音を察知しました！")
+                else:
+                    st.info("🐕 ポチが通常モードに戻りました。")
+                
+                logger.info(f"犬のボタン状態変更: {current_state} → {new_state}")
             else:
-                st.info("🐕 ポチが通常モードに戻りました。")
-            
-            logger.info(f"犬のボタンがクリックされました (new state: {new_state})")
+                logger.debug(f"犬のボタン状態変更なし: {current_state}")
             
         except Exception as e:
             logger.error(f"犬のボタンクリック処理エラー: {e}")
@@ -301,8 +394,17 @@ class DogAssistant:
             # ボタン
             button_text = "🔄 戻す" if is_active else "🐕 本音を見る"
             if st.button(button_text, key="dog_assistant_btn"):
-                self.handle_dog_button_click()
-                st.rerun()
+                # チュートリアルマネージャーを取得（可能な場合）
+                tutorial_manager = None
+                try:
+                    # セッション状態からチュートリアルマネージャーを取得する試み
+                    # （完全ではないが、フォールバック用）
+                    pass
+                except:
+                    pass
+                
+                self.handle_dog_button_click(tutorial_manager)
+                # st.rerun()を削除 - 状態変更により自動的に再描画される
             
             # コンテナの終了
             st.markdown('</div>', unsafe_allow_html=True)

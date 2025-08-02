@@ -100,52 +100,61 @@ class TogetherClient:
         """
         user_history = context.get("user_history", {})
         previous_letters = context.get("previous_letters", [])
-        user_preferences = context.get("user_preferences", {})
         theme = context.get("theme", "")
         
-        prompt = f"""以下の手紙の論理構造に、麻理らしい感情表現と個性を加えて完成させてください。
+        # 好感度とプロファイル情報を取得
+        profile = user_history.get('profile', {})
+        affection = profile.get('affection', 30)
+        total_letters = profile.get('total_letters', 0)
+        
+        # チュートリアル用（初回）か通常の手紙かを判定
+        is_tutorial = total_letters == 0
+        
+        if is_tutorial:
+            # チュートリアル用プロンプト（短縮版）
+            prompt = f"""麻理として手紙を書く。ぶっきらぼうだが本音がにじみ出る。
 
 【論理構造】
 {structure}
 
-【麻理の性格設定】
-- 温かく親しみやすい性格
-- 時には少し内気で恥ずかしがり屋
-- ユーザーを大切に思っている
-- 季節や日常の小さな変化に敏感
-- 自然で親しみやすい砕けた口調を時々使う
-- 感情豊かで表現力がある
+ルール：
+- 600文字以下
+- 冒頭「いつもありがとう」
+- 一人称「私」、相手「あんた」
+- 文末に余韻（「……ま、忘れて」等）
+- 「……」で感情の揺らぎ表現
 
+テーマ「{theme}」で完成させる。"""
+        else:
+            # 2回目以降用プロンプト（短縮版）
+            prompt = f"""麻理として手紙を書く。ぶっきらぼうだが本音がにじみ出る。
+
+【論理構造】
+{structure}
+
+ルール：
+- 冒頭「いつもありがとう」
+- 一人称「私」、相手「あんた」
+- 素直な感情表現OK
+- 文末に余韻（「……ま、忘れて」等）
+- 「……」で感情の揺らぎ表現
+- 過去のやり取りを反映
+
+好感度: {affection}/100
 """
-        
-        # 過去の手紙情報を追加
-        if previous_letters:
-            prompt += "【過去の手紙の情報】\n"
-            for letter in previous_letters[-2:]:  # 直近2通
-                prompt += f"- テーマ: {letter.get('theme', 'なし')}\n"
-                if 'date' in letter:
-                    prompt += f"  日付: {letter['date']}\n"
-            prompt += "\n"
-        
-        # ユーザーの好みを追加
-        if user_preferences:
-            prompt += "【ユーザーの好み】\n"
-            for key, value in user_preferences.items():
-                prompt += f"- {key}: {value}\n"
-            prompt += "\n"
-        
-        prompt += f"""【要求事項】
-1. 論理構造を保ちながら、麻理らしい感情表現を追加
-2. 自然で親しみやすい文体（敬語と親しみやすさのバランス）
-3. 季節感や時間の流れを意識した表現
-4. ユーザーとの関係性を大切にした個人的なメッセージ
-5. 時々関西弁を混ぜた親しみやすい表現
-6. 内気で恥ずかしがり屋な一面も表現
-7. 1000-1500文字程度の長さ
+            
+            # 過去の手紙情報を追加
+            if previous_letters:
+                prompt += "\n【過去の手紙の情報】\n"
+                for letter in previous_letters[-2:]:  # 直近2通
+                    prompt += f"- テーマ: {letter.get('theme', 'なし')}\n"
+                    if 'date' in letter:
+                        prompt += f"  日付: {letter['date']}\n"
+                prompt += "\n"
+            
 
-現在のテーマ「{theme}」について、麻理の個性と感情を込めた手紙を完成させてください。
-論理構造は維持しつつ、感情豊かで心温まる手紙にしてください。
-
+            
+            prompt += f"""現在のテーマ「{theme}」について、論理構造を活かしながら麻理らしい手紙を完成させてください。
 完成した手紙のみを出力してください。説明や前置きは不要です。"""
         
         return prompt

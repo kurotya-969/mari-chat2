@@ -25,13 +25,21 @@ class ChatInterface:
     def render_chat_history(self, messages: List[Dict[str, str]], 
                           memory_summary: str = "") -> None:
         """
-        チャット履歴を表示する（マスク機能付き）
+        チャット履歴を表示する（マスク機能付き、最適化版）
         
         Args:
             messages: チャットメッセージのリスト
             memory_summary: メモリサマリー（重要単語から生成）
         """
         try:
+            # 履歴表示の重複実行を防ぐ
+            messages_hash = hash(str(messages))
+            last_render_hash = st.session_state.get('last_chat_render_hash', None)
+            
+            if last_render_hash == messages_hash:
+                logger.debug("チャット履歴表示をスキップ（変更なし）")
+                return
+            
             # メモリサマリーがある場合は表示
             if memory_summary:
                 with st.expander("💭 過去の会話の記憶", expanded=False):
@@ -52,13 +60,23 @@ class ChatInterface:
                     else:
                         # ユーザーメッセージは通常通り表示
                         if is_initial:
-                            st.markdown(f'<div class="mari-initial-message">{content}</div>', unsafe_allow_html=True)
+                            # 初期メッセージは確実に黒文字で表示
+                            initial_message_html = f'''
+                            <div class="mari-initial-message" style="color: #333333 !important; font-weight: 500;">
+                                {content}
+                            </div>
+                            '''
+                            st.markdown(initial_message_html, unsafe_allow_html=True)
                         else:
                             st.markdown(content)
                     
                     # デバッグモードの場合はタイムスタンプを表示
                     if st.session_state.get("debug_mode", False) and timestamp:
                         st.caption(f"送信時刻: {timestamp}")
+            
+            # 履歴表示完了をマーク
+            st.session_state.last_chat_render_hash = messages_hash
+            logger.debug(f"チャット履歴表示完了（{len(messages)}件）")
                         
         except Exception as e:
             logger.error(f"チャット履歴表示エラー: {e}")
@@ -74,8 +92,26 @@ class ChatInterface:
             is_initial: 初期メッセージかどうか
         """
         try:
-            # 隠された真実を検出
-            has_hidden_content, visible_content, hidden_content = self._detect_hidden_content(content)
+            # メッセージ処理キャッシュをチェック（重複処理防止）
+            cache_key = f"processed_{message_id}_{hash(content)}"
+            if cache_key in st.session_state:
+                # キャッシュから結果を取得
+                cached_result = st.session_state[cache_key]
+                has_hidden_content = cached_result['has_hidden']
+                visible_content = cached_result['visible_content']
+                hidden_content = cached_result['hidden_content']
+                logger.debug(f"キャッシュからメッセージ処理結果を取得: {message_id}")
+            else:
+                # 隠された真実を検出
+                has_hidden_content, visible_content, hidden_content = self._detect_hidden_content(content)
+                
+                # 結果をキャッシュに保存
+                st.session_state[cache_key] = {
+                    'has_hidden': has_hidden_content,
+                    'visible_content': visible_content,
+                    'hidden_content': hidden_content
+                }
+                logger.debug(f"メッセージ処理結果をキャッシュに保存: {message_id}")
             
             # 隠された真実が検出されない場合のフォールバック処理
             if not has_hidden_content:
@@ -96,7 +132,13 @@ class ChatInterface:
             else:
                 # 通常のメッセージ表示
                 if is_initial:
-                    st.markdown(f'<div class="mari-initial-message">{content}</div>', unsafe_allow_html=True)
+                    # 初期メッセージは確実に黒文字で表示
+                    initial_message_html = f'''
+                    <div class="mari-initial-message" style="color: #333333 !important; font-weight: 500;">
+                        {content}
+                    </div>
+                    '''
+                    st.markdown(initial_message_html, unsafe_allow_html=True)
                 else:
                     st.markdown(content)
                     
@@ -116,8 +158,8 @@ class ChatInterface:
             (隠された内容があるか, 表示用内容, 隠された内容)
         """
         try:
-            # デバッグ用ログ
-            logger.info(f"🔍 隠された内容検出中: '{content[:50]}...'")
+            # デバッグ用ログ（重複実行防止）
+            logger.debug(f"🔍 隠された内容検出中: '{content[:50]}...'")
             
             # 隠された真実のマーカーを検索
             # 形式: [HIDDEN:隠された内容]表示される内容
@@ -140,7 +182,7 @@ class ChatInterface:
                 return True, visible_content, hidden_content
             
             # マーカーがない場合は通常のメッセージ
-            logger.info(f"📝 通常メッセージ: '{content[:30]}...'")
+            logger.debug(f"📝 通常メッセージ: '{content[:30]}...'")
             return False, content, ""
             
         except Exception as e:
@@ -249,17 +291,28 @@ class ChatInterface:
             </style>
             """
             
-            # 犬のボタンの状態を事前にチェックして即座に反映
+            # 犬のボタンの状態を事前にチェックして即座に反映（無限ループ防止）
             show_all_hidden = st.session_state.get('show_all_hidden', False)
             
-            # 犬のボタンの状態に従って表示を切り替え
-            if show_all_hidden != is_flipped:
+            # 犬のボタンの状態に従って表示を切り替え（状態変更時のみ）
+            current_flip_state = st.session_state.message_flip_states.get(message_id, False)
+            if show_all_hidden != current_flip_state:
                 st.session_state.message_flip_states[message_id] = show_all_hidden
                 is_flipped = show_all_hidden
+                logger.debug(f"メッセージ {message_id} のフリップ状態を更新: {is_flipped}")
+            else:
+                is_flipped = current_flip_state
             
             # 現在表示するコンテンツを決定
             current_content = hidden_content if is_flipped else visible_content
-            initial_class = "mari-initial-message" if is_initial else ""
+            
+            # 初期メッセージの場合は確実に黒文字で表示
+            if is_initial:
+                initial_style = "color: #333333 !important; font-weight: 500;"
+                initial_class = "mari-initial-message"
+            else:
+                initial_style = ""
+                initial_class = ""
             
             # メッセージを全幅で表示（ボタンは削除）
             # 背景色を動的に設定
@@ -275,7 +328,7 @@ class ChatInterface:
                 line-height: 1.7;
                 margin: 8px 0;
             ">
-                <div class="{initial_class}">{current_content}</div>
+                <div class="{initial_class}" style="{initial_style}">{current_content}</div>
             </div>
             """
             st.markdown(message_style, unsafe_allow_html=True)

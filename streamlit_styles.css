@@ -7,7 +7,7 @@
 :root {
     /* 新しいカラーパレット - コントラスト改善版 */
     --base-color: #FAF3E0;           /* クリーム色（背景） */
-    --text-color: #3D2F24;           /* より濃いセピア色（テキスト） - コントラスト比改善 */
+    --text-color: #333333;           /* 濃い灰色（テキスト） - 視認性向上 */
     --mari-bubble-bg: #F5F5F5;       /* オフホワイト（麻理の吹き出し） */
     --user-bubble-bg: #A8D0B0;       /* より濃い緑（ユーザーの吹き出し） - コントラスト比改善 */
     --hidden-bubble-bg: #FFF8E1;     /* 暖かいクリーム（本音の吹き出し） */
@@ -64,8 +64,20 @@
     margin-bottom: 12px !important;
     box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1) !important;
     transition: all 0.3s ease;
-    color: var(--text-color) !important;
+    color: #333333 !important;
     font-family: var(--ui-font) !important;
+}
+
+/* チャットメッセージ内のすべてのテキスト要素を確実に黒文字に */
+.stChatMessage * {
+    color: #333333 !important;
+}
+
+/* チャットメッセージ内のマークダウン要素 */
+.stChatMessage p,
+.stChatMessage div,
+.stChatMessage span {
+    color: #333333 !important;
 }
 
 /* 最後のチャットメッセージに追加の下部マージンを設定 */
@@ -84,17 +96,34 @@
 .stChatMessage[data-testid="user-message"] {
     background: var(--user-bubble-bg) !important;
     border: 1px solid rgba(168, 208, 176, 0.6) !important;
-    color: var(--text-color) !important;
+    color: #333333 !important;
     font-family: var(--ui-font) !important;
+}
+
+/* ユーザーメッセージ内のすべてのテキスト要素 */
+.stChatMessage[data-testid="user-message"] * {
+    color: #333333 !important;
 }
 
 /* アシスタントメッセージ（麻理の対話） */
 .stChatMessage[data-testid="assistant-message"] {
     background: var(--mari-bubble-bg) !important;
     border: 1px solid rgba(0, 0, 0, 0.1) !important;
-    color: var(--text-color) !important;
+    color: #333333 !important;
     font-family: var(--mari-font) !important;
     line-height: 1.7 !important;
+}
+
+/* アシスタントメッセージ内のすべてのテキスト要素 */
+.stChatMessage[data-testid="assistant-message"] * {
+    color: #333333 !important;
+}
+
+/* アシスタントメッセージ内のマークダウン要素 */
+.stChatMessage[data-testid="assistant-message"] p,
+.stChatMessage[data-testid="assistant-message"] div,
+.stChatMessage[data-testid="assistant-message"] span {
+    color: #333333 !important;
 }
 
 /* 隠された真実の吹き出し */
@@ -106,7 +135,40 @@
 
 /* 麻理の初期メッセージアニメーション */
 .mari-initial-message {
+    color: #333333 !important;  /* 黒文字で表示 */
+    font-weight: 500;
+    background-color: transparent !important;
     animation: popIn 0.8s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+}
+
+/* Streamlitのチャットメッセージ内での初期メッセージ */
+.stChatMessage .mari-initial-message {
+    color: #333333 !important;  /* 黒文字で表示 */
+    font-weight: 500;
+}
+
+/* より具体的なセレクタでStreamlitのデフォルトスタイルを上書き */
+div[data-testid="stChatMessage"] .mari-initial-message {
+    color: #333333 !important;  /* 黒文字で表示 */
+    font-weight: 500;
+}
+
+/* Streamlitのチャットメッセージ要素全体に対する強制的な文字色設定 */
+div[data-testid="stChatMessage"],
+div[data-testid="stChatMessage"] *,
+div[data-testid="assistant-message"],
+div[data-testid="assistant-message"] *,
+div[data-testid="user-message"],
+div[data-testid="user-message"] * {
+    color: #333333 !important;
+}
+
+/* Streamlitのマークダウン要素 */
+div[data-testid="stChatMessage"] .stMarkdown,
+div[data-testid="stChatMessage"] .stMarkdown *,
+div[data-testid="stChatMessage"] .element-container,
+div[data-testid="stChatMessage"] .element-container * {
+    color: #333333 !important;
 }
 
 @keyframes popIn {

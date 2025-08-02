@@ -48,6 +48,21 @@ pinned: false
 
 ### Hugging Face Spacesでの実行（推奨）
 
+Hugging Face Spacesでは、セッション管理サーバーが自動的に起動されます。
+
+#### 自動起動機能
+- アプリケーション起動時にFastAPIサーバーが自動で起動
+- セッション管理機能が完全に利用可能
+- Cookie-based認証によるセキュアなセッション管理
+
+#### 環境変数設定
+Hugging Face Spacesの設定で以下の環境変数を設定してください：
+
+```
+TOGETHER_API_KEY=your_together_api_key_here
+GROQ_API_KEY=your_groq_api_key_here
+```
+
 1. **リポジトリのインポート**
    - このリポジトリをHugging Face Spacesにインポート
    - または[デモサイト](https://huggingface.co/spaces/your-space-name)で直接体験
@@ -456,7 +471,7 @@ flake8 spaces/
 
 ## 📄 ライセンス
 
-このプロジェクトは**MITライセンス**の下で公開されています。詳細は[LICENSE](LICENSE)ファイルをご確認ください。
+このプロジェクトは**MITライセンス**の下で公開されています。
 
 ## 🙏 謝辞
 

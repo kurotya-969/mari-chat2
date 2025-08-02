@@ -172,16 +172,12 @@ class DialogueGenerator:
         # システムプロンプトを取得（隠された真実機能は既に統合済み）
         hidden_system_prompt = self.get_system_prompt_mari(use_ura_mode)
         
-        user_prompt = f'''# 現在の状況
-- 現在地: {current_theme}
-- 好感度: {affection} ({stage_name}){memory_section}
-# 最近の会話履歴
+        user_prompt = f'''現在地: {current_theme}
+好感度: {affection} ({stage_name}){memory_section}
+履歴:
 {history_text}
----
-# 指示
-{f"【特別指示】{instruction}" if instruction else f"ユーザーの発言「{message}」に応答してください。"}
 
-麻理の応答（隠された真実付き）:'''
+{f"指示: {instruction}" if instruction else f"「{message}」に応答:"}'''
         
         return self.call_llm(hidden_system_prompt, user_prompt)
     

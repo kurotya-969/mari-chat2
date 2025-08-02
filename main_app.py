@@ -23,6 +23,90 @@ load_dotenv()
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 
+# --- セッション管理サーバー自動起動 ---
+def start_session_server():
+    """
+    セッション管理サーバーを自動起動する
+    Hugging Face Spacesでの実行時に必要
+    """
+    import subprocess
+    import threading
+    import requests
+    import time
+    
+    def check_server_running(timeout=2):
+        """サーバーが起動しているかチェック"""
+        # Hugging Face Spacesでの実行を考慮してホストを動的に決定
+        hosts_to_try = ["127.0.0.1", "localhost", "0.0.0.0"]
+        port = 8000
+        
+        for host in hosts_to_try:
+            try:
+                response = requests.get(f"http://{host}:{port}/health", timeout=timeout)
+                if response.status_code == 200:
+                    logger.debug(f"サーバー接続成功: {host}:{port}")
+                    return True
+            except Exception:
+                continue
+        return False
+    
+    def run_server():
+        """バックグラウンドでサーバーを起動"""
+        try:
+            logger.info("セッション管理サーバーをバックグラウンドで起動中...")
+            
+            # uvicornでサーバー起動（Hugging Face Spaces対応）
+            import uvicorn
+            
+            # 実行環境に応じてホストを決定
+            is_spaces = os.getenv("SPACE_ID") is not None
+            host = "0.0.0.0" if is_spaces else "127.0.0.1"
+            
+            uvicorn.run(
+                "session_api_server:app",
+                host=host,
+                port=8000,
+                log_level="warning",  # ログレベルを下げてStreamlitログと混在を防ぐ
+                access_log=False      # アクセスログを無効化
+            )
+        except Exception as e:
+            logger.error(f"サーバー起動エラー: {e}")
+    
+    # 既にサーバーが起動しているかチェック
+    if check_server_running():
+        logger.info("✅ セッション管理サーバーは既に起動しています")
+        return True
+    
+    try:
+        # バックグラウンドでサーバー起動
+        server_thread = threading.Thread(target=run_server, daemon=True)
+        server_thread.start()
+        
+        # サーバー起動待機（最大15秒、Hugging Face Spacesでは時間がかかる場合がある）
+        max_wait = 15
+        for i in range(max_wait):
+            time.sleep(1)
+            if check_server_running():
+                logger.info(f"✅ セッション管理サーバー起動成功 ({i+1}秒)")
+                return True
+            if i < max_wait - 1:  # 最後の試行以外でログ出力
+                logger.info(f"サーバー起動待機中... ({i+1}/{max_wait})")
+        
+        logger.warning("⚠️ セッション管理サーバー起動タイムアウト - フォールバックモードで継続")
+        return False
+        
+    except Exception as e:
+        logger.error(f"サーバー起動処理エラー: {e}")
+        return False
+
+# アプリケーション起動時にサーバーを自動起動
+if 'server_started' not in st.session_state:
+    st.session_state.server_started = start_session_server()
+    if st.session_state.server_started:
+        logger.info("🚀 セッション管理サーバー起動完了")
+    else:
+        logger.warning("⚠️ セッション管理サーバー起動失敗 - フォールバックモードで動作")
+
 
 # --- 必要なモジュールのインポート ---
 
@@ -35,7 +119,9 @@ from core_memory_manager import MemoryManager
 from components_chat_interface import ChatInterface
 from components_status_display import StatusDisplay
 from components_dog_assistant import DogAssistant
+from components_tutorial import TutorialManager
 from session_manager import SessionManager, get_session_manager, validate_session_state, perform_detailed_session_validation
+from session_api_client import SessionAPIClient
 # << 手紙生成用モジュール >>
 from letter_config import Config
 from letter_logger import setup_logger as setup_letter_logger
@@ -79,7 +165,12 @@ def run_async(coro):
         return asyncio.run(coro)
 
 def update_background(scene_manager: SceneManager, theme: str):
-    """現在のテーマに基づいて背景画像を動的に設定するCSSを注入する"""
+    """現在のテーマに基づいて背景画像を動的に設定するCSSを注入する（重複実行防止）"""
+    # 現在のテーマと前回のテーマを比較
+    last_theme = st.session_state.get('last_background_theme', '')
+    if last_theme == theme:
+        return  # 同じテーマの場合は更新しない
+    
     try:
         # SceneManagerから画像のURLを取得
         image_url = scene_manager.get_theme_url(theme)
@@ -100,7 +191,7 @@ def update_background(scene_manager: SceneManager, theme: str):
         }}
         
         .stApp > div:first-child {{
-            background: rgba(0, 0, 0, 0.6);
+            background: rgba(250, 243, 224, 0.95);
             backdrop-filter: blur(5px);
             min-height: 100vh;
             transition: background 1.5s ease-in-out, backdrop-filter 1.5s ease-in-out;
@@ -109,6 +200,9 @@ def update_background(scene_manager: SceneManager, theme: str):
         """
         st.markdown(background_css, unsafe_allow_html=True)
         logger.info(f"背景を'{theme}'に変更しました")
+        
+        # 現在のテーマを記録
+        st.session_state.last_background_theme = theme
         
     except Exception as e:
         logger.error(f"背景更新エラー: {e}")
@@ -125,16 +219,7 @@ def update_background(scene_manager: SceneManager, theme: str):
         </style>
         """
         st.markdown(fallback_css, unsafe_allow_html=True)
-
-def inject_custom_css(file_path="streamlit_styles.css"):
-    """静的なCSSファイルを読み込む"""
-    try:
-        with open(file_path, "r", encoding="utf-8") as f:
-            st.markdown(f"<style>{f.read()}</style>", unsafe_allow_html=True)
-    except FileNotFoundError:
-        logger.warning(f"CSSファイルが見つかりません: {file_path}")
-
-
+        st.session_state.last_background_theme = theme
 
 # --- ▼▼▼ 1. 初期化処理の一元管理 ▼▼▼ ---
 
@@ -163,6 +248,8 @@ def initialize_all_managers():
     chat_interface = ChatInterface(max_input_length=MAX_INPUT_LENGTH)
     status_display = StatusDisplay()
     dog_assistant = DogAssistant()
+    tutorial_manager = TutorialManager()
+    session_api_client = SessionAPIClient()
 
     logger.info("All managers initialized.")
     return {
@@ -179,45 +266,64 @@ def initialize_all_managers():
         "chat_interface": chat_interface,
         "status_display": status_display,
         "dog_assistant": dog_assistant,
+        "tutorial_manager": tutorial_manager,
+        "session_api_client": session_api_client,
     }
 
-def initialize_session_state(managers):
+def initialize_session_state(managers, force_reset_override=False):
     """
     アプリケーション全体のセッションステートを初期化する
     SessionManagerを使用してセッション分離を強化
+    
+    Args:
+        managers: 管理クラスの辞書
+        force_reset_override: 強制リセットフラグ（フルリセット時に使用）
     """
-    # 強制リセットフラグ（開発時用）
-    force_reset = os.getenv("FORCE_SESSION_RESET", "false").lower() == "true"
+    # 強制リセットフラグ（開発時用または明示的な指定）
+    force_reset = force_reset_override or os.getenv("FORCE_SESSION_RESET", "false").lower() == "true"
+    
+    # 初回起動時はセッション検証をスキップ
+    is_first_run = 'user_id' not in st.session_state
     
     # SessionManagerの初期化（セッション分離強化）
     session_manager = get_session_manager()
     
-    # セッション整合性チェックを初期化時に実行
-    if not validate_session_state():
+    # 初回起動時以外でセッション整合性チェックを実行
+    if not is_first_run and not validate_session_state():
         logger.error("Session validation failed during initialization")
         # 復旧に失敗した場合は強制リセット
         force_reset = True
     
-    # 共通のユーザーIDを生成（各ブラウザセッションごとに独立）
+    # FastAPIセッション管理システムを使用してユーザーIDを取得
+    session_api_client = managers["session_api_client"]
+    
+    # セッションIDを取得または生成（複数回呼び出し防止）
     if 'user_id' not in st.session_state or force_reset:
-        # 手紙機能はUUID形式のユーザーIDを想定しているため、それに合わせる
-        # 注意: このユーザーIDは各ブラウザセッションごとに独立しており、
-        # 他のユーザーのセッションとは完全に分離されています
-        st.session_state.user_id = managers["user_manager"].generate_user_id()
+        session_id = session_api_client.get_or_create_session_id()
+    else:
+        session_id = st.session_state.user_id
+        logger.debug(f"既存ユーザーID使用: {session_id[:8]}...")
+    
+    # ユーザーIDとしてセッションIDを使用
+    session_changed = ('user_id' not in st.session_state or 
+                      st.session_state.user_id != session_id or 
+                      force_reset)
+    
+    if session_changed:
+        st.session_state.user_id = session_id
         
         # SessionManagerにユーザーIDを設定
         session_manager.set_user_id(st.session_state.user_id)
         
-        # セッション情報をより詳細にログ出力
+        # セッション情報をログ出力
         session_info = {
-            "user_id": st.session_state.user_id,
+            "user_id": st.session_state.user_id[:8] + "...",  # プライバシー保護のため一部のみ
             "session_id": id(st.session_state),
-            "streamlit_session_id": st.session_state.get('_session_id', 'unknown'),
             "force_reset": force_reset,
-            "timestamp": datetime.now().isoformat(),
-            "session_manager_info": str(session_manager)
+            "session_changed": session_changed,
+            "timestamp": datetime.now().isoformat()
         }
-        logger.info(f"New user session created with SessionManager: {session_info}")
+        logger.info(f"FastAPIセッション管理でユーザーセッション設定: {session_info}")
         
         # セッション固有の識別子を保存
         st.session_state._session_id = id(st.session_state)
@@ -226,18 +332,21 @@ def initialize_session_state(managers):
         if session_manager.user_id != st.session_state.user_id:
             session_manager.set_user_id(st.session_state.user_id)
         
-        logger.debug(f"Existing session found with User ID: {st.session_state.user_id}, Session ID: {id(st.session_state)}")
+        logger.debug(f"既存セッション継続使用: {st.session_state.user_id[:8]}...")
 
     # チャット機能用のセッション初期化
     if 'chat_initialized' not in st.session_state or force_reset:
+        initial_message = "何の用？遊びに来たの？"
         st.session_state.chat = {
-            "messages": [{"role": "assistant", "content": "[HIDDEN:（本当は嬉しいけど...素直になれない）]何の用？遊びに来たの？", "is_initial": True}],
+            "messages": [{"role": "assistant", "content": initial_message, "is_initial": True}],
             "affection": 30,
             "scene_params": {"theme": "default"},
             "limiter_state": managers["rate_limiter"].create_limiter_state(),
             "scene_change_pending": None,
             "ura_mode": False  # 裏モードフラグ
         }
+        
+        logger.info(f"チャット初期化完了 - 初期メッセージ: '{initial_message}'")
         # 特別な記憶の通知用
         st.session_state.memory_notifications = []
         # 好感度変化の通知用
@@ -282,6 +391,9 @@ def initialize_session_state(managers):
         logger.warning("Session integrity check failed after initialization")
         session_manager.recover_session()
 
+    # 初期化完了フラグを設定
+    st.session_state._initialization_complete = True
+
     # 手紙機能用のセッションは特に追加の初期化は不要
     # (各関数内で必要なデータは都度非同期で取得するため)
 
@@ -289,19 +401,26 @@ def initialize_session_state(managers):
 # --- ▼▼▼ 2. UIコンポーネントの関数化 ▼▼▼ ---
 
 def inject_custom_css(file_path="streamlit_styles.css"):
-    """外部CSSファイルを読み込んで注入する"""
+    """外部CSSファイルを読み込んで注入する（一度だけ実行）"""
+    # CSS読み込み済みフラグをチェック
+    if st.session_state.get('css_loaded', False):
+        return
+    
     try:
         with open(file_path, "r", encoding="utf-8") as f:
             css_content = f.read()
             st.markdown(f"<style>{css_content}</style>", unsafe_allow_html=True)
             logger.info(f"CSSファイルを読み込みました: {file_path}")
+            st.session_state.css_loaded = True
     except FileNotFoundError:
         logger.warning(f"CSSファイルが見つかりません: {file_path}")
         # フォールバック用の基本スタイルを適用
         apply_fallback_css()
+        st.session_state.css_loaded = True
     except Exception as e:
         logger.error(f"CSS読み込みエラー: {e}")
         apply_fallback_css()
+        st.session_state.css_loaded = True
 
 def apply_fallback_css():
     """フォールバック用の基本CSSを適用"""
@@ -620,6 +739,13 @@ def render_custom_chat_history(messages, chat_interface):
         st.info("まだメッセージがありません。下のチャット欄で麻理に話しかけてみてください。")
         return
     
+    # デバッグ: 初期メッセージの存在確認
+    initial_messages = [msg for msg in messages if msg.get('is_initial', False)]
+    if initial_messages:
+        logger.debug(f"初期メッセージ確認: {len(initial_messages)}件 - 内容: '{initial_messages[0].get('content', '')}'")
+    else:
+        logger.warning("初期メッセージが見つかりません")
+    
     # 拡張されたチャットインターフェースを使用（マスク機能付き）
     chat_interface.render_chat_history(messages)
 
@@ -627,6 +753,13 @@ def render_custom_chat_history(messages, chat_interface):
 # === チャットタブの描画関数 ===
 def render_chat_tab(managers):
     """「麻理と話す」タブのUIを描画する"""
+    
+    # チュートリアル機能の自動チェック
+    tutorial_manager = managers['tutorial_manager']
+    tutorial_manager.auto_check_completions()
+    
+    # チュートリアル案内をチャットタブに表示
+    tutorial_manager.render_chat_tutorial_guide()
 
     # --- サイドバー ---
     with st.sidebar:
@@ -665,6 +798,9 @@ def render_chat_tab(managers):
                     help="麻理のセーフティ機能を切り替えます", use_container_width=True):
             st.session_state.chat['ura_mode'] = not current_mode
             new_mode = st.session_state.chat['ura_mode']
+            
+            # チュートリアルステップ3を完了
+            tutorial_manager.check_step_completion(3, True)
             
             if new_mode:
                 st.success("🔓 セーフティ解除モードに切り替えました！")
@@ -725,7 +861,7 @@ def render_chat_tab(managers):
             # ... (エクスポートやリセットボタンのロジックは省略) ...
             if st.button("🔄 会話をリセット", type="secondary", use_container_width=True, help="あなたの会話履歴のみをリセットします（他のユーザーには影響しません）"):
                 # チャット履歴を完全にリセット
-                st.session_state.chat['messages'] = [{"role": "assistant", "content": "[HIDDEN:（本当は嬉しいけど...素直になれない）]何の用？遊びに来たの？", "is_initial": True}]
+                st.session_state.chat['messages'] = [{"role": "assistant", "content": "何の用？遊びに来たの？", "is_initial": True}]
                 st.session_state.chat['affection'] = 30
                 st.session_state.chat['scene_params'] = {"theme": "default"}
                 st.session_state.chat['limiter_state'] = managers['rate_limiter'].create_limiter_state()
@@ -744,14 +880,131 @@ def render_chat_tab(managers):
                 if 'message_flip_states' in st.session_state:
                     del st.session_state.message_flip_states
                 
-                # 新しいユーザーIDを生成（完全リセット）
-                st.session_state.user_id = managers["user_manager"].generate_user_id()
+                # 新しいセッションIDを生成（完全リセット）
+                session_api_client = managers["session_api_client"]
+                
+                # セッションをリセット
+                new_session_id = session_api_client.reset_session()
+                st.session_state.user_id = new_session_id
                 
                 st.success("会話を完全にリセットしました（新しいセッションとして開始）")
                 st.rerun()
             
+            # フルリセットボタン（Cookie含む完全リセット）
+            st.markdown("---")
+            st.markdown("**⚠️ 危険な操作**")
+            
+            if st.button("🔥 フルリセット（Cookie含む）", 
+                        type="secondary", 
+                        use_container_width=True, 
+                        help="Cookie含む全データを完全にリセットします（ブラウザセッションも新規作成）"):
+                
+                # 確認ダイアログ
+                if 'full_reset_confirm' not in st.session_state:
+                    st.session_state.full_reset_confirm = False
+                
+                if not st.session_state.full_reset_confirm:
+                    st.session_state.full_reset_confirm = True
+                    st.warning("⚠️ 本当にフルリセットしますか？この操作は取り消せません。")
+                    st.info("Cookie削除→新規セッション作成を実行します。もう一度ボタンを押してください。")
+                    st.rerun()
+                else:
+                    # フルリセット実行
+                    session_api_client = managers["session_api_client"]
+                    
+                    try:
+                        # プログレスバーで進行状況を表示
+                        progress_bar = st.progress(0)
+                        status_text = st.empty()
+                        
+                        status_text.text("🔄 フルリセット開始...")
+                        progress_bar.progress(10)
+                        
+                        # 1. フルリセット実行（Cookie削除→新規セッション作成）
+                        status_text.text("🍪 Cookie削除中...")
+                        progress_bar.progress(30)
+                        
+                        reset_result = session_api_client.full_reset_session()
+                        
+                        if reset_result['success']:
+                            status_text.text("✅ Cookie削除完了、新規セッション作成中...")
+                            progress_bar.progress(60)
+                            
+                            # 2. Streamlitセッション状態を完全クリア
+                            keys_to_clear = list(st.session_state.keys())
+                            for key in keys_to_clear:
+                                if key not in ['_session_id', 'session_info']:  # 必要なキーは保持
+                                    del st.session_state[key]
+                            
+                            # CSS読み込みフラグもリセット
+                            st.session_state.css_loaded = False
+                            st.session_state.last_background_theme = ''
+                            st.session_state._initialization_complete = False
+                            
+                            # メッセージ処理キャッシュもクリア
+                            cache_keys_to_clear = [key for key in st.session_state.keys() if key.startswith('processed_')]
+                            for cache_key in cache_keys_to_clear:
+                                del st.session_state[cache_key]
+                            
+                            status_text.text("🔄 セッション状態初期化中...")
+                            progress_bar.progress(80)
+                            
+                            # 3. 新しいユーザーIDを設定
+                            if reset_result.get('new_session_id'):
+                                # 完全なセッションIDを取得（表示用は短縮版）
+                                full_session_id = st.session_state.session_info.get('session_id')
+                                st.session_state.user_id = full_session_id
+                            
+                            # 4. 初期状態を再構築（強制リセット）
+                            initialize_session_state(managers, force_reset_override=True)
+                            
+                            # 5. MemoryManagerの完全クリア（念のため）
+                            if hasattr(st.session_state, 'memory_manager'):
+                                st.session_state.memory_manager.clear_memory()
+                                logger.info("MemoryManager完全クリア実行")
+                            
+                            # 6. SessionManagerのデータもリセット
+                            session_manager = get_session_manager()
+                            session_manager.reset_session_data()
+                            logger.info("SessionManagerデータリセット実行")
+                            
+                            status_text.text("🎉 フルリセット完了！")
+                            progress_bar.progress(100)
+                            
+                            # 成功メッセージ
+                            st.success(f"🔥 フルリセット完了！")
+                            st.info(f"📊 Cookie削除: {'✅' if reset_result.get('cookie_reset') else '❌'}")
+                            st.info(f"🆕 新規セッション: {'✅' if reset_result.get('session_created') else '❌'}")
+                            st.info(f"🔄 旧→新: {reset_result.get('old_session_id')} → {reset_result.get('new_session_id')}")
+                            
+                            # 自動リロード
+                            st.info("⏳ 3秒後に自動でページを再読み込みします...")
+                            reload_js = """
+                            <script>
+                            setTimeout(function() {
+                                window.location.reload();
+                            }, 3000);
+                            </script>
+                            """
+                            st.markdown(reload_js, unsafe_allow_html=True)
+                            
+                        else:
+                            st.error(f"❌ フルリセット失敗: {reset_result.get('message', '不明なエラー')}")
+                            st.info("通常のリセットを試すか、ページを手動で再読み込みしてください。")
+                        
+                    except Exception as e:
+                        logger.error(f"フルリセットエラー: {e}")
+                        st.error(f"❌ フルリセットに失敗しました: {str(e)}")
+                        st.info("通常のリセットを試すか、ページを手動で再読み込みしてください。")
+                    
+                    # 確認フラグをリセット
+                    st.session_state.full_reset_confirm = False
+            
             # 設定コンテンツのHTMLタグを閉じる
             st.markdown('</div>', unsafe_allow_html=True)
+        
+        # チュートリアル案内をサイドバーに表示
+        tutorial_manager.render_tutorial_sidebar()
 
         if st.session_state.debug_mode:
             with st.expander("🛠️ デバッグ情報", expanded=False):
@@ -787,6 +1040,13 @@ def render_chat_tab(managers):
                     "data_integrity": isolation_status["data_integrity"]
                 }
                 
+                # FastAPIセッション状態を取得
+                session_api_client = managers.get("session_api_client")
+                api_session_status = session_api_client.get_session_status() if session_api_client else {}
+                
+                # Cookie状態を取得
+                cookie_status = session_api_client.get_cookie_status() if session_api_client else {}
+                
                 # 拡張されたデバッグ情報
                 enhanced_debug_info = {
                     "session_isolation_details": session_isolation_details,
@@ -802,6 +1062,8 @@ def render_chat_tab(managers):
                         "created_at": session_info["created_at"],
                         "last_validated": session_info["last_validated"]
                     },
+                    "fastapi_session_info": api_session_status,
+                    "cookie_status": cookie_status,
                     "chat_state": {
                         "affection": st.session_state.chat['affection'],
                         "theme": st.session_state.chat['scene_params']['theme'],
@@ -828,8 +1090,8 @@ def render_chat_tab(managers):
                 }
                 
                 # タブ形式でデバッグ情報を整理（拡張版）
-                debug_tab1, debug_tab2, debug_tab3, debug_tab4, debug_tab5 = st.tabs([
-                    "🔍 セッション分離", "📊 基本情報", "✅ 検証履歴", "🔧 復旧履歴", "⚙️ システム詳細"
+                debug_tab1, debug_tab2, debug_tab3, debug_tab4, debug_tab5, debug_tab6 = st.tabs([
+                    "🔍 セッション分離", "📊 基本情報", "🍪 Cookie状態", "✅ 検証履歴", "🔧 復旧履歴", "⚙️ システム詳細"
                 ])
                 
                 with debug_tab1:
@@ -943,6 +1205,56 @@ def render_chat_tab(managers):
                     })
                 
                 with debug_tab3:
+                    st.markdown("### 🍪 Cookie状態")
+                    
+                    if cookie_status:
+                        # Cookie概要
+                        col1, col2, col3 = st.columns(3)
+                        with col1:
+                            st.metric("Cookie数", cookie_status.get('count', 0))
+                        with col2:
+                            has_session = cookie_status.get('has_session_cookie', False)
+                            st.metric("セッションCookie", "✅ あり" if has_session else "❌ なし")
+                        with col3:
+                            if st.button("🔄 Cookie状態更新", help="Cookie状態を再取得します"):
+                                st.rerun()
+                        
+                        # Cookie詳細
+                        if cookie_status.get('cookies'):
+                            st.markdown("#### Cookie詳細")
+                            for i, cookie in enumerate(cookie_status['cookies']):
+                                with st.expander(f"Cookie {i+1}: {cookie.get('name', 'unknown')}"):
+                                    st.json(cookie)
+                        else:
+                            st.info("現在Cookieは設定されていません")
+                        
+                        # Cookie操作ボタン
+                        st.markdown("#### Cookie操作")
+                        col_cookie1, col_cookie2 = st.columns(2)
+                        with col_cookie1:
+                            if st.button("🗑️ Cookie削除テスト", help="Cookieを削除してテストします"):
+                                try:
+                                    session_api_client.session.cookies.clear()
+                                    st.success("Cookie削除完了")
+                                    st.rerun()
+                                except Exception as e:
+                                    st.error(f"Cookie削除エラー: {e}")
+                        
+                        with col_cookie2:
+                            if st.button("🔥 フルリセットテスト", help="フルリセット機能をテストします"):
+                                try:
+                                    reset_result = session_api_client.full_reset_session()
+                                    if reset_result['success']:
+                                        st.success(f"フルリセット成功: {reset_result['message']}")
+                                    else:
+                                        st.error(f"フルリセット失敗: {reset_result['message']}")
+                                    st.json(reset_result)
+                                except Exception as e:
+                                    st.error(f"フルリセットテストエラー: {e}")
+                    else:
+                        st.warning("Cookie状態を取得できませんでした")
+                
+                with debug_tab4:
                     st.markdown("### ✅ セッション検証履歴")
                     if validation_history:
                         st.write(f"**最新の検証履歴（最大10件）:** 総検証回数 {session_info['validation_count']} 回")
@@ -1024,6 +1336,29 @@ def render_chat_tab(managers):
                         st.success("復旧履歴がありません（正常な状態です）")
                 
                 with debug_tab5:
+                    st.markdown("### 🔧 復旧履歴")
+                    if recovery_history:
+                        st.write(f"**復旧履歴（最大10件）:** 総復旧回数 {session_info['recovery_count']} 回")
+                        
+                        # 復旧履歴のサマリー
+                        recent_recoveries = recovery_history[-5:] if len(recovery_history) >= 5 else recovery_history
+                        
+                        col1, col2 = st.columns(2)
+                        with col1:
+                            st.metric("直近の復旧回数", len(recent_recoveries))
+                        with col2:
+                            if recent_recoveries:
+                                last_recovery = recent_recoveries[-1]
+                                st.metric("最終復旧", last_recovery['timestamp'][:19])
+                        
+                        # 復旧履歴の詳細表示
+                        for i, recovery in enumerate(reversed(recovery_history)):
+                            with st.expander(f"復旧 #{len(recovery_history)-i}: {recovery['timestamp'][:19]}"):
+                                st.json(recovery)
+                    else:
+                        st.success("復旧履歴がありません（正常な状態です）")
+                
+                with debug_tab6:
                     st.markdown("### ⚙️ システム詳細情報")
                     st.json(enhanced_debug_info["system_state"])
                     
@@ -1121,6 +1456,9 @@ Streamlit情報:
     # メッセージ処理ロジック
     def process_chat_message(message: str):
         try:
+            # チュートリアルステップ1を完了（メッセージ送信）
+            tutorial_manager.check_step_completion(1, True)
+            
             # セッション検証を処理開始時に実行
             if not validate_session_state():
                 logger.error("Session validation failed at message processing start")
@@ -1139,21 +1477,41 @@ Streamlit情報:
 
             # 会話履歴を正しく構築（現在のメッセージは含まない）
             # 注意: この時点では現在のユーザーメッセージはまだ履歴に追加されていない
-            user_messages = [msg['content'] for msg in st.session_state.chat['messages'] if msg['role'] == 'user']
-            assistant_messages = [msg['content'] for msg in st.session_state.chat['messages'] if msg['role'] == 'assistant']
+            # 初期メッセージ（is_initial=True）を履歴から除外して会話ペアを構築
+            non_initial_messages = [msg for msg in st.session_state.chat['messages'] 
+                                  if not msg.get('is_initial', False)]
             
-            # 最新の数ターンの履歴を取得（最大5ターン）
+            # 会話ペアを時系列順に構築
             history = []
-            max_turns = min(5, min(len(user_messages), len(assistant_messages)))
+            user_msgs = []
+            assistant_msgs = []
+            
+            for msg in non_initial_messages:
+                if msg['role'] == 'user':
+                    user_msgs.append(msg['content'])
+                elif msg['role'] == 'assistant':
+                    assistant_msgs.append(msg['content'])
+            
+            # ユーザーとアシスタントのメッセージをペアにする（最大5ターン）
+            max_turns = min(5, min(len(user_msgs), len(assistant_msgs)))
             for i in range(max_turns):
-                if i < len(user_messages) and i < len(assistant_messages):
-                    history.append((user_messages[-(i+1)], assistant_messages[-(i+1)]))
-            history.reverse()  # 時系列順に並び替え
+                if i < len(user_msgs) and i < len(assistant_msgs):
+                    history.append((user_msgs[i], assistant_msgs[i]))
+            
+            # 初回の場合は空の履歴になる（これが正しい動作）
+            logger.info(f"📚 構築された履歴: {len(history)}ターン")
+            if st.session_state.get('debug_mode', False):
+                logger.info(f"🔍 全メッセージ数: {len(st.session_state.chat['messages'])}")
+                logger.info(f"🔍 非初期メッセージ数: {len(non_initial_messages)}")
+                logger.info(f"🔍 ユーザーメッセージ数: {len(user_msgs)}")
+                logger.info(f"🔍 アシスタントメッセージ数: {len(assistant_msgs)}")
 
-            # 好感度更新
+            # 好感度更新（初期メッセージを除外）
             old_affection = st.session_state.chat['affection']
+            non_initial_messages = [msg for msg in st.session_state.chat['messages'] 
+                                  if not msg.get('is_initial', False)]
             affection, change_amount, change_reason = managers['sentiment_analyzer'].update_affection(
-                message, st.session_state.chat['affection'], st.session_state.chat['messages']
+                message, st.session_state.chat['affection'], non_initial_messages
             )
             st.session_state.chat['affection'] = affection
             stage_name = managers['sentiment_analyzer'].get_relationship_stage(affection)
@@ -1191,11 +1549,19 @@ Streamlit情報:
                 instruction = managers['scene_manager'].get_scene_transition_message(current_theme, new_theme)
                 st.session_state.scene_change_flag = True
 
-            # メモリ圧縮とサマリー取得
+            # メモリ圧縮とサマリー取得（初期メッセージを除外）
+            non_initial_messages = [msg for msg in st.session_state.chat['messages'] 
+                                  if not msg.get('is_initial', False)]
             compressed_messages, important_words = st.session_state.memory_manager.compress_history(
-                st.session_state.chat['messages']
+                non_initial_messages
             )
             memory_summary = st.session_state.memory_manager.get_memory_summary()
+            
+            # デバッグ: メモリサマリーの内容をログ出力
+            if memory_summary:
+                logger.warning(f"🧠 メモリサマリーが存在: {memory_summary[:100]}...")
+            else:
+                logger.info("🧠 メモリサマリーは空です（初対面状態）")
             
             # 対話生成（隠された真実機能統合済み）
             response = managers['dialogue_generator'].generate_dialogue(
@@ -1262,156 +1628,98 @@ Streamlit情報:
             if st.session_state.get('scene_change_flag', False):
                 del st.session_state['scene_change_flag']
             
-            # チャット履歴を更新するためにページを再読み込み
-            st.rerun()
+            # st.rerun()を削除 - Streamlitは自動的に再描画される
     
-    # 犬のボタンクリック処理（Streamlitのボタンを使用）
-    # JavaScriptイベントの代わりにStreamlitのボタンを使用
-    dog_button_container = st.container()
-    with dog_button_container:
-        # 固定位置のCSS
-        dog_fixed_css = """
-        <style>
-        .dog-streamlit-container {
-            position: fixed;
-            bottom: 20px;
-            right: 20px;
-            z-index: 1000;
-            background: rgba(255, 255, 255, 0.95);
-            border-radius: 20px;
-            padding: 15px;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
-            backdrop-filter: blur(10px);
-            border: 1px solid rgba(0,0,0,0.1);
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            max-width: 200px;
-        }
-        
-        .dog-streamlit-container .stButton > button {
-            background: linear-gradient(135deg, #ff9a9e 0%, #fecfef 100%);
-            border: none;
-            border-radius: 50%;
-            width: 70px;
-            height: 70px;
-            font-size: 35px;
-            color: white;
-            box-shadow: 0 4px 12px rgba(255, 154, 158, 0.4);
-            transition: all 0.3s ease;
-        }
-        
-        .dog-streamlit-container .stButton > button:hover {
-            transform: scale(1.1);
-            box-shadow: 0 6px 20px rgba(255, 154, 158, 0.6);
-        }
-        
-        .dog-message {
-            font-size: 12px;
-            color: #333;
-            text-align: center;
-            margin-bottom: 10px;
-            padding: 8px;
-            background: rgba(255, 255, 255, 0.8);
-            border-radius: 10px;
-            word-wrap: break-word;
-        }
-        
-        /* レスポンシブ対応 */
-        @media (max-width: 768px) {
-            .dog-streamlit-container {
-                bottom: 15px;
-                right: 15px;
-                padding: 12px;
-                max-width: 150px;
-            }
-            
-            .dog-streamlit-container .stButton > button {
-                width: 60px;
-                height: 60px;
-                font-size: 30px;
-            }
-            
-            .dog-message {
-                font-size: 11px;
-            }
-        }
-        
-        @media (max-width: 480px) {
-            .dog-streamlit-container {
-                bottom: 10px;
-                right: 10px;
-                padding: 10px;
-                max-width: 120px;
-            }
-            
-            .dog-streamlit-container .stButton > button {
-                width: 50px;
-                height: 50px;
-                font-size: 25px;
-            }
-            
-            .dog-message {
-                font-size: 10px;
-            }
-        }
-        
-        @media (max-width: 320px) {
-            .dog-message {
-                display: none;
-            }
-        }
-        </style>
-        """
-        
-        st.markdown(dog_fixed_css, unsafe_allow_html=True)
-        
-        # コンテナの開始
-        st.markdown('<div class="dog-streamlit-container">', unsafe_allow_html=True)
-        
-        # 現在の状態に応じたメッセージ
-        is_active = st.session_state.get('show_all_hidden', False)
-        bubble_text = "ワンワン！本音が見えてるワン！" if is_active else "ポチは麻理の本音を察知したようだ・・・"
-        
-        st.markdown(f'<div class="dog-message">{bubble_text}</div>', unsafe_allow_html=True)
-        
-        # 犬のボタン
-        if st.button("🐕", key="dog_assistant_main", help="ポチが麻理の本音を察知します"):
-            # 状態を即座に切り替え
-            if 'show_all_hidden' not in st.session_state:
-                st.session_state.show_all_hidden = False
-            
-            # 新しい状態を設定
-            new_state = not st.session_state.show_all_hidden
-            st.session_state.show_all_hidden = new_state
-            
-
-            
-            # 全メッセージのフリップ状態を即座に更新
-            if 'message_flip_states' not in st.session_state:
-                st.session_state.message_flip_states = {}
-            
-            # 現在のメッセージに対してフリップ状態を設定
-            for i, message in enumerate(st.session_state.chat['messages']):
-                if message['role'] == 'assistant':
-                    message_id = f"msg_{i}"
-                    st.session_state.message_flip_states[message_id] = new_state
-            
-            # 通知メッセージ
-            if new_state:
-                st.success("🐕 ポチが麻理の本音を察知しました！")
-            else:
-                st.info("🐕 ポチが通常モードに戻りました。")
-            
-            st.rerun()
-        
-        # コンテナの終了
-        st.markdown('</div>', unsafe_allow_html=True)
+    # DogAssistantの固定配置コンポーネントを描画（右下のみ）
+    try:
+        managers['dog_assistant'].render_dog_component(tutorial_manager)
+    except Exception as e:
+        logger.error(f"DogAssistant描画エラー: {e}")
+        # フォールバック: シンプルなボタンを表示
+        managers['dog_assistant'].render_with_streamlit_button()
 
 # === 手紙タブの描画関数 ===
+async def generate_tutorial_letter_async(theme: str, managers) -> str:
+    """チュートリアル用の短縮版手紙を非同期で生成する（Groq + Qwen使用）"""
+    try:
+        # 現在の好感度と関係性を取得
+        current_affection = st.session_state.chat.get('affection', 30)
+        stage_name = managers['sentiment_analyzer'].get_relationship_stage(current_affection)
+        user_id = st.session_state.user_id
+        
+        # チュートリアル用のユーザー履歴を構築
+        tutorial_user_history = {
+            'profile': {
+                'total_letters': 0,
+                'affection': current_affection,
+                'stage': stage_name
+            },
+            'letters': {}
+        }
+        
+        # 手紙生成器を使用（Groq + Qwen の2段階プロセス）
+        letter_generator = managers.get('letter_generator')
+        if not letter_generator:
+            # フォールバック：直接生成
+            return await generate_tutorial_letter_fallback(theme, current_affection, stage_name)
+        
+        # 通常の手紙生成システムを使用
+        letter_result = await letter_generator.generate_letter(user_id, theme, tutorial_user_history)
+        
+        # 600文字以内に制限
+        letter_content = letter_result['content']
+        if len(letter_content) > 600:
+            # 文の区切りで切り詰める
+            sentences = letter_content.split('。')
+            truncated_content = ""
+            for sentence in sentences:
+                if len(truncated_content + sentence + '。') <= 600:
+                    truncated_content += sentence + '。'
+                else:
+                    break
+            letter_content = truncated_content.rstrip('。') + '……'
+        
+        return letter_content
+        
+    except Exception as e:
+        logger.error(f"チュートリアル手紙生成エラー: {e}")
+        # フォールバック手紙
+        return await generate_tutorial_letter_fallback(theme, current_affection, stage_name)
+
+async def generate_tutorial_letter_fallback(theme: str, current_affection: int, stage_name: str) -> str:
+    """チュートリアル手紙生成のフォールバック"""
+    return f"""いつもありがとう。
+
+{theme}のこと……書こうと思ったんだけど、なんか恥ずかしくて。
+あんたと話してると、いつもと違う自分になれる気がするの。
+それって、きっと特別なことよね。
+
+私、まだまだ素直になれないけれど……
+少しずつ、あんたのことを知りたいと思ってる。
+
+……ま、忘れて。バカじゃないの。
+でも、ありがとう。"""
+
+def generate_tutorial_letter(theme: str, managers) -> str:
+    """チュートリアル用手紙生成の同期ラッパー"""
+    try:
+        return run_async(generate_tutorial_letter_async(theme, managers))
+    except Exception as e:
+        logger.error(f"チュートリアル手紙生成同期ラッパーエラー: {e}")
+        current_affection = st.session_state.chat.get('affection', 30)
+        stage_name = managers['sentiment_analyzer'].get_relationship_stage(current_affection)
+        return run_async(generate_tutorial_letter_fallback(theme, current_affection, stage_name))
+
 def render_letter_tab(managers):
     """「手紙を受け取る」タブのUIを描画する"""
     st.title("✉️ おやすみ前の、一通の手紙")
+    
+    # チュートリアル案内（ステップ4の場合のみ）
+    tutorial_manager = managers.get('tutorial_manager')
+    if tutorial_manager and tutorial_manager.get_current_step() == 4:
+        # 手紙タブに到達したことを祝福
+        st.success("🎉 素晴らしい！手紙タブに到達しました！")
+        tutorial_manager.render_chat_tutorial_guide()
     st.write("今日の終わりに、あなたのためだけにAIが手紙を綴ります。伝えたいテーマと時間を選ぶと、あなたがログインした時に手紙が届きます。")
     
     # 手紙機能のチュートリアル
@@ -1467,11 +1775,21 @@ def render_letter_tab(managers):
     current_affection = st.session_state.chat['affection']
     required_affection = 40
     
-    # 好感度制限チェック
-    if current_affection < required_affection:
+    # チュートリアル状態をチェック
+    tutorial_manager = managers.get('tutorial_manager')
+    is_tutorial_step4 = (tutorial_manager and 
+                        tutorial_manager.get_current_step() == 4 and 
+                        not tutorial_manager.is_step_completed(4))
+    
+    # 好感度制限チェック（チュートリアル中は免除）
+    if current_affection < required_affection and not is_tutorial_step4:
         st.warning(f"💔 手紙をリクエストするには好感度が{required_affection}以上必要です。現在の好感度: {current_affection}")
         st.info("麻理ともっと会話して、関係を深めてから手紙をお願いしてみてください。")
         return
+    
+    # チュートリアル中の特別案内
+    if is_tutorial_step4:
+        st.info("📘 **チュートリアル特典**: 初回のみ好感度に関係なく手紙をリクエストできます！")
     
     try:
         request_status = run_async(request_manager.get_user_request_status(user_id))
@@ -1487,36 +1805,147 @@ def render_letter_tab(managers):
         else:
             st.success("本日分の手紙は処理済みです。下記の一覧からご確認ください。")
     else:
-        # 好感度が十分な場合のみフォームを表示
-        st.success(f"💝 好感度{current_affection}で手紙をリクエストできます！")
+        # 好感度が十分な場合またはチュートリアル中のフォーム表示
+        if not is_tutorial_step4:
+            st.success(f"💝 好感度{current_affection}で手紙をリクエストできます！")
         
         with st.form("letter_request_form"):
-            theme = st.text_input("手紙のテーマ", placeholder="例：最近見た美しい景色について")
-            generation_hour = st.selectbox(
-                "手紙を書いてほしい時間",
-                options=Config.BATCH_SCHEDULE_HOURS,
-                format_func=lambda h: f"深夜 {h}時"
-            )
-            submitted = st.form_submit_button("この内容でお願いする")
+            if is_tutorial_step4:
+                # チュートリアル用のデフォルトテーマ
+                theme = st.text_input("手紙のテーマ", 
+                                    value="初めての出会いについて", 
+                                    placeholder="例：最近見た美しい景色について")
+                st.caption("📘 チュートリアル用にテーマを設定済みです。変更も可能です。")
+                
+                # チュートリアル用は即時生成
+                st.info("🚀 チュートリアル特典：即座に手紙を生成します！")
+                submitted = st.form_submit_button("📘 チュートリアル用手紙を生成")
+            else:
+                theme = st.text_input("手紙のテーマ", placeholder="例：最近見た美しい景色について")
+                generation_hour = st.selectbox(
+                    "手紙を書いてほしい時間",
+                    options=Config.BATCH_SCHEDULE_HOURS,
+                    format_func=lambda h: f"深夜 {h}時"
+                )
+                submitted = st.form_submit_button("この内容でお願いする")
 
             if submitted:
                 if not theme:
                     st.error("テーマを入力してください。")
                 else:
-                    with st.spinner("リクエストを送信中..."):
-                        try:
-                            # 好感度情報も一緒に送信
-                            success, message = run_async(
-                                request_manager.submit_request(user_id, theme, generation_hour, affection=current_affection)
-                            )
-                        except Exception as e:
-                            logger.error(f"リクエスト送信エラー: {e}")
-                            success, message = False, "リクエストの送信に失敗しました。しばらく後でお試しください。"
-                    if success:
-                        st.success(message)
-                        st.rerun()
+                    if is_tutorial_step4:
+                        # チュートリアル用即時生成
+                        with st.spinner("チュートリアル用手紙を生成中..."):
+                            try:
+                                # 短縮版手紙を即時生成（Groq + Qwen使用）
+                                tutorial_letter = generate_tutorial_letter(theme, managers)
+                                
+                                # チュートリアル手紙生成フラグを設定
+                                st.session_state.tutorial_letter_generated = True
+                                
+                                # チュートリアルステップ4を完了
+                                tutorial_manager.check_step_completion(4, True)
+                                
+                                # 手紙を表示
+                                st.success("✉️ 麻理からの手紙が届きました！")
+                                
+                                with st.container():
+                                    st.markdown("---")
+                                    
+                                    # 手紙のスタイル付きコンテナ
+                                    letter_css = """
+                                    <style>
+                                    .tutorial-letter {
+                                        background: linear-gradient(135deg, #fff8e1 0%, #f3e5f5 100%);
+                                        border: 2px solid #e1bee7;
+                                        border-radius: 15px;
+                                        padding: 25px;
+                                        margin: 20px 0;
+                                        box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+                                        font-family: 'Georgia', serif;
+                                        line-height: 1.8;
+                                        position: relative;
+                                    }
+                                    
+                                    .tutorial-letter::before {
+                                        content: '💌';
+                                        position: absolute;
+                                        top: -10px;
+                                        left: 20px;
+                                        background: white;
+                                        padding: 5px 10px;
+                                        border-radius: 50%;
+                                        font-size: 20px;
+                                    }
+                                    
+                                    .tutorial-letter h3 {
+                                        color: #7b1fa2;
+                                        text-align: center;
+                                        margin-bottom: 20px;
+                                        font-size: 24px;
+                                    }
+                                    
+                                    .tutorial-notice {
+                                        background: rgba(255, 193, 7, 0.1);
+                                        border-left: 4px solid #ffc107;
+                                        padding: 10px 15px;
+                                        margin: 15px 0;
+                                        border-radius: 0 8px 8px 0;
+                                        font-size: 14px;
+                                        color: #856404;
+                                    }
+                                    </style>
+                                    """
+                                    
+                                    st.markdown(letter_css, unsafe_allow_html=True)
+                                    
+                                    # 手紙の内容を美しく表示
+                                    letter_html = f"""
+                                    <div class="tutorial-letter">
+                                        <h3>麻理からの手紙</h3>
+                                        <div style="white-space: pre-line; color: #424242;">
+                                            {tutorial_letter}
+                                        </div>
+                                    </div>
+                                    """
+                                    
+                                    st.markdown(letter_html, unsafe_allow_html=True)
+                                    
+                                    # チュートリアル用の注意書き
+                                    notice_html = """
+                                    <div class="tutorial-notice">
+                                        📘 これはチュートリアル用の短縮版です。好感度を上げると、もっと長い手紙も……？
+                                    </div>
+                                    """
+                                    st.markdown(notice_html, unsafe_allow_html=True)
+                                    
+                                    # 会話に反映ボタン
+                                    if st.button("💬 この手紙の内容を会話に反映", key="tutorial_letter_reflect"):
+                                        # メモリに手紙の内容を追加
+                                        memory_notification = f"手紙の内容「{theme}」について話題にしました"
+                                        st.session_state.memory_notifications.append(memory_notification)
+                                        st.success("手紙の内容が会話に反映されました！チャットタブで確認してください。")
+                                        st.rerun()
+                                
+                            except Exception as e:
+                                logger.error(f"チュートリアル手紙生成エラー: {e}")
+                                st.error("手紙の生成に失敗しました。しばらく後でお試しください。")
                     else:
-                        st.error(message)
+                        # 通常の手紙リクエスト処理
+                        with st.spinner("リクエストを送信中..."):
+                            try:
+                                # 好感度情報も一緒に送信
+                                success, message = run_async(
+                                    request_manager.submit_request(user_id, theme, generation_hour, affection=current_affection)
+                                )
+                            except Exception as e:
+                                logger.error(f"リクエスト送信エラー: {e}")
+                                success, message = False, "リクエストの送信に失敗しました。しばらく後でお試しください。"
+                        if success:
+                            st.success(message)
+                            st.rerun()
+                        else:
+                            st.error(message)
 
     st.divider()
 
@@ -1606,14 +2035,114 @@ def main():
     # 背景を更新
     update_background(managers['scene_manager'], st.session_state.chat['scene_params']['theme'])
 
+    # チュートリアル機能の初期化
+    tutorial_manager = managers['tutorial_manager']
+    
+    # 初回訪問時のウェルカムダイアログ
+    if tutorial_manager.should_show_tutorial():
+        tutorial_manager.render_welcome_dialog()
+        tutorial_manager.mark_tutorial_shown()
+    
+    # チュートリアル開始/スキップの処理
+    if st.session_state.get('tutorial_start_requested', False):
+        st.session_state.tutorial_start_requested = False
+        # チュートリアル開始の案内
+        st.success("📘 チュートリアルを開始しました！青い案内ボックスに従って進めてください。")
+    
+    if st.session_state.get('tutorial_skip_requested', False):
+        st.session_state.tutorial_skip_requested = False
+        st.success("⏭️ チュートリアルをスキップしました。麻理との会話をお楽しみください！")
+    
+    # チュートリアルステップ4の場合、手紙タブを強調表示
+    tutorial_manager = managers['tutorial_manager']
+    current_step = tutorial_manager.get_current_step()
+    
+    # タブ名を動的に設定
+    if current_step == 4 and not tutorial_manager.is_step_completed(4):
+        # ステップ4の場合、手紙タブを強調
+        letter_tab_name = "👉 ✉️ 手紙を受け取る ← ここをクリック！"
+        
+        # 手紙タブ強調のCSS
+        tab_highlight_css = """
+        <style>
+        /* 手紙タブの強調表示 */
+        .stTabs [data-baseweb="tab-list"] button:nth-child(2) {
+            background: linear-gradient(45deg, #ff6b6b, #feca57) !important;
+            color: white !important;
+            font-weight: bold !important;
+            animation: tabPulse 2s ease-in-out infinite !important;
+            border: 2px solid #ff6b6b !important;
+            border-radius: 10px !important;
+            box-shadow: 0 4px 15px rgba(255, 107, 107, 0.4) !important;
+        }
+        
+        .stTabs [data-baseweb="tab-list"] button:nth-child(2):hover {
+            transform: scale(1.05) !important;
+            box-shadow: 0 6px 20px rgba(255, 107, 107, 0.6) !important;
+        }
+        
+        @keyframes tabPulse {
+            0%, 100% { 
+                transform: scale(1);
+                box-shadow: 0 4px 15px rgba(255, 107, 107, 0.4);
+            }
+            50% { 
+                transform: scale(1.02);
+                box-shadow: 0 6px 25px rgba(255, 107, 107, 0.7);
+            }
+        }
+        
+        /* 矢印アニメーション */
+        .tutorial-arrow {
+            position: fixed;
+            top: 60px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 1000;
+            font-size: 30px;
+            color: #ff6b6b;
+            animation: arrowBounce 1.5s ease-in-out infinite;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+        }
+        
+        @keyframes arrowBounce {
+            0%, 100% { transform: translateX(-50%) translateY(0px); }
+            50% { transform: translateX(-50%) translateY(-10px); }
+        }
+        
+        @media (max-width: 768px) {
+            .tutorial-arrow {
+                top: 50px;
+                font-size: 24px;
+            }
+        }
+        </style>
+        """
+        
+        st.markdown(tab_highlight_css, unsafe_allow_html=True)
+        
+        # 矢印の表示
+        arrow_html = """
+        <div class="tutorial-arrow">
+            ↓ 手紙タブをクリック！ ↓
+        </div>
+        """
+        
+        st.markdown(arrow_html, unsafe_allow_html=True)
+    else:
+        letter_tab_name = "✉️ 手紙を受け取る"
+    
     # タブを作成
-    chat_tab, letter_tab = st.tabs(["💬 麻理と話す", "✉️ 手紙を受け取る"])
+    chat_tab, letter_tab, tutorial_tab = st.tabs(["💬 麻理と話す", letter_tab_name, "📘 チュートリアル"])
 
     with chat_tab:
         render_chat_tab(managers)
 
     with letter_tab:
         render_letter_tab(managers)
+    
+    with tutorial_tab:
+        tutorial_manager.render_tutorial_tab()
 
 if __name__ == "__main__":
     if not Config.validate_config():
